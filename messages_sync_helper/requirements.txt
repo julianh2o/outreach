@@ -1,0 +1,11 @@
+# Menu bar app
+rumps>=0.4.0
+
+# File system watching for low-latency sync
+watchdog>=3.0.0
+
+# WebSocket client
+websockets>=12.0
+
+# Bundling
+py2app>=0.28.0

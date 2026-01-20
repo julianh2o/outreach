@@ -9,29 +9,29 @@ datasource db {
 }
 
 model Contact {
-  id                      String    @id @default(cuid())
-  firstName               String
-  lastName                String?
-  birthday                DateTime?
-  notes                   String?
-  outreachFrequencyDays   Int?
-  preferredContactMethod  String?   // References ChannelType.id
-  lastContacted           DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  firstName              String
+  lastName               String?
+  birthday               DateTime?
+  notes                  String?
+  outreachFrequencyDays  Int?
+  preferredContactMethod String? // References ChannelType.id
+  lastContacted          DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  channels           Channel[]
-  tags               TagOnContact[]
-  customFields       CustomFieldValue[]
-  processingBatches  MessageProcessingBatch[]
-  suggestedUpdates   SuggestedUpdate[]
+  channels          Channel[]
+  tags              TagOnContact[]
+  customFields      CustomFieldValue[]
+  processingBatches MessageProcessingBatch[]
+  suggestedUpdates  SuggestedUpdate[]
 }
 
 // Channel types: phone, email, address, discord, instagram, facebook_messenger
 model Channel {
   id         String  @id @default(cuid())
-  type       String  // References ChannelType.id
-  identifier String  // Phone number, email, screen name, handle, etc.
+  type       String // References ChannelType.id
+  identifier String // Phone number, email, screen name, handle, etc.
   label      String? // e.g., "Work", "Personal", "Home"
   isPrimary  Boolean @default(false)
   contactId  String
@@ -78,14 +78,14 @@ model CustomFieldDefinition {
 }
 
 model CustomFieldValue {
-  id         String                @id @default(cuid())
-  value      String
-  contactId  String
-  fieldId    String
-  contact    Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  field      CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
+  id        String                @id @default(cuid())
+  value     String
+  contactId String
+  fieldId   String
+  contact   Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  field     CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
 
   @@unique([contactId, fieldId])
 }
@@ -110,12 +110,12 @@ model MessageProcessingBatch {
   id                  String      @id @default(cuid())
   contactId           String
   contact             Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  messageHashes       String      // JSON array of message hashes included in batch
-  conversationSnippet String      // The concatenated messages sent to LLM
+  messageHashes       String // JSON array of message hashes included in batch
+  conversationSnippet String // The concatenated messages sent to LLM
   status              BatchStatus @default(PENDING)
-  llmPrompt           String?     // The full prompt sent to the LLM
-  llmResponse         String?     // The raw response from the LLM
-  errorMessage        String?     // Error message if processing failed
+  llmPrompt           String? // The full prompt sent to the LLM
+  llmResponse         String? // The raw response from the LLM
+  errorMessage        String? // Error message if processing failed
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -124,17 +124,17 @@ model MessageProcessingBatch {
 }
 
 model SuggestedUpdate {
-  id               String           @id @default(cuid())
-  batchId          String
-  batch            MessageProcessingBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  contactId        String
-  contact          Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  suggestedChanges String           // JSON - map of field names to suggested values with confidence
-  hasNotableUpdates Boolean         @default(false)
-  status           SuggestionStatus @default(PENDING)
-  acceptedChanges  String?          // JSON - which changes were accepted, null until reviewed
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                String                 @id @default(cuid())
+  batchId           String
+  batch             MessageProcessingBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  contactId         String
+  contact           Contact                @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  suggestedChanges  String // JSON - map of field names to suggested values with confidence
+  hasNotableUpdates Boolean                @default(false)
+  status            SuggestionStatus       @default(PENDING)
+  acceptedChanges   String? // JSON - which changes were accepted, null until reviewed
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 }
 
 model ProcessedMessage {
@@ -143,4 +143,52 @@ model ProcessedMessage {
   batchId     String
   batch       MessageProcessingBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   createdAt   DateTime               @default(now())
+}
+
+// Message Sync Tables
+
+model StoredMessage {
+  id             String    @id @default(cuid())
+  rowid          Int       @unique // From chat.db, used for sync cursor
+  guid           String    @unique // Apple's message GUID
+  text           String?
+  handleId       String // Phone/email identifier
+  isFromMe       Boolean
+  date           DateTime
+  dateRead       DateTime?
+  dateDelivered  DateTime?
+  chatId         Int?
+  hasAttachments Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  attachments StoredAttachment[]
+
+  @@index([handleId])
+  @@index([date])
+  @@index([rowid])
+}
+
+model StoredAttachment {
+  id           String        @id @default(cuid())
+  rowid        Int
+  guid         String        @unique
+  filename     String?
+  mimeType     String?
+  transferName String?
+  totalBytes   Int           @default(0)
+  createdAt    DateTime?
+  localPath    String? // Path under data/attachments/ (null if sync failed)
+  errorReason  String? // file_not_found, file_too_large, read_error, etc.
+  errorDetails String? // Additional error info
+  messageId    String
+  message      StoredMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([errorReason])
+}
+
+model SyncState {
+  id              String    @id @default("messages_sync")
+  lastSyncedRowid Int       @default(0)
+  lastSyncedAt    DateTime?
+  updatedAt       DateTime  @updatedAt
 }

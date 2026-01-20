@@ -5,6 +5,7 @@ import lookupsRouter from './lookups';
 import discordRouter from './discord';
 import messagesRouter from './messages';
 import suggestedUpdatesRouter from './suggested-updates';
+import attachmentsRouter from './attachments';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/lookups', lookupsRouter);
 router.use('/discord', discordRouter);
 router.use('/messages', messagesRouter);
 router.use('/suggested-updates', suggestedUpdatesRouter);
+router.use('/attachments', attachmentsRouter);
 
 export default router;

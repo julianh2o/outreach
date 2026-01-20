@@ -3,13 +3,13 @@ import { HelmetProvider } from 'react-helmet-async';
 import App from './App';
 
 describe('App', () => {
-	it('renders the home page', () => {
-		render(
-			<HelmetProvider>
-				<App />
-			</HelmetProvider>,
-		);
+  it('renders the home page', () => {
+    render(
+      <HelmetProvider>
+        <App />
+      </HelmetProvider>,
+    );
 
-		expect(screen.getByText(/Welcome to Template App/i)).toBeInTheDocument();
-	});
+    expect(screen.getByText(/Welcome to Template App/i)).toBeInTheDocument();
+  });
 });

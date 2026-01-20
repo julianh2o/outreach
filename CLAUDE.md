@@ -2,7 +2,7 @@
 
 ## Special instructions
 IMPORTANT: Do not build or release unless specifically asked or granted permission.
-IMPORTANT: When significant work is completed, perform a `yarn format > /dev/null && yarn lint && yarn typecheck && yarn build` to verify the code quality.
+IMPORTANT: When significant work is completed, perform a `yarn lint && yarn typecheck && yarn build` to verify the code quality.
 
 ## Project Overview
 

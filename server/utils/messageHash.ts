@@ -11,19 +11,19 @@ import { createHash } from 'crypto';
  * @returns A unique hash string identifying this message
  */
 export function generateMessageHash(
-	phoneNumber: string,
-	isFromMe: boolean,
-	timestamp: string,
-	content: string | null,
+  phoneNumber: string,
+  isFromMe: boolean,
+  timestamp: string,
+  content: string | null,
 ): string {
-	const direction = isFromMe ? 'out' : 'in';
+  const direction = isFromMe ? 'out' : 'in';
 
-	// Generate a 4-character hash of the content using MD5 and base64
-	// Handle null/empty content (e.g., image-only messages)
-	const safeContent = content || '';
-	const contentHash = createHash('md5').update(safeContent).digest('base64').substring(0, 4);
+  // Generate a 4-character hash of the content using MD5 and base64
+  // Handle null/empty content (e.g., image-only messages)
+  const safeContent = content || '';
+  const contentHash = createHash('md5').update(safeContent).digest('base64').substring(0, 4);
 
-	return `${phoneNumber}:${direction}:${timestamp}:${contentHash}`;
+  return `${phoneNumber}:${direction}:${timestamp}:${contentHash}`;
 }
 
 /**
@@ -34,26 +34,26 @@ export function generateMessageHash(
  * @returns The parsed components or null if invalid
  */
 export function parseMessageHash(hash: string): {
-	phoneNumber: string;
-	direction: 'in' | 'out';
-	timestamp: string;
-	contentHash: string;
+  phoneNumber: string;
+  direction: 'in' | 'out';
+  timestamp: string;
+  contentHash: string;
 } | null {
-	const parts = hash.split(':');
-	if (parts.length < 4) return null;
+  const parts = hash.split(':');
+  if (parts.length < 4) return null;
 
-	const [phoneNumber, direction, ...rest] = parts;
-	// Content hash is last 4 chars, timestamp is everything in between
-	const contentHash = rest.pop();
-	const timestamp = rest.join(':');
+  const [phoneNumber, direction, ...rest] = parts;
+  // Content hash is last 4 chars, timestamp is everything in between
+  const contentHash = rest.pop();
+  const timestamp = rest.join(':');
 
-	if (!phoneNumber || !direction || !timestamp || !contentHash) return null;
-	if (direction !== 'in' && direction !== 'out') return null;
+  if (!phoneNumber || !direction || !timestamp || !contentHash) return null;
+  if (direction !== 'in' && direction !== 'out') return null;
 
-	return {
-		phoneNumber,
-		direction,
-		timestamp,
-		contentHash,
-	};
+  return {
+    phoneNumber,
+    direction,
+    timestamp,
+    contentHash,
+  };
 }

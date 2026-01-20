@@ -13,28 +13,28 @@ import { config } from '../config';
  * In production: /build/config
  */
 export const getConfigPath = (): string => {
-	return path.join(appRoot.path, config.isProduction ? 'build' : 'src', 'config');
+  return path.join(appRoot.path, config.isProduction ? 'build' : 'src', 'config');
 };
 
 /**
  * Get the path to the SMS configuration file
  */
 export const getSmsConfigPath = (): string => {
-	return path.join(getConfigPath(), 'sms.yml');
+  return path.join(getConfigPath(), 'sms.yml');
 };
 
 /**
  * Get the path to the tasks configuration file
  */
 export const getTasksConfigPath = (): string => {
-	return path.join(getConfigPath(), 'tasks.yaml');
+  return path.join(getConfigPath(), 'tasks.yaml');
 };
 
 /**
  * Get the path to the admins configuration file
  */
 export const getAdminsConfigPath = (): string => {
-	return path.join(getConfigPath(), 'admins.yaml');
+  return path.join(getConfigPath(), 'admins.yaml');
 };
 
 /**
@@ -42,14 +42,14 @@ export const getAdminsConfigPath = (): string => {
  * @param formName - The name of the form (e.g., 'eventForm')
  */
 export const getFormConfigPath = (formName: string): string => {
-	return path.join(getConfigPath(), `${formName}.yaml`);
+  return path.join(getConfigPath(), `${formName}.yaml`);
 };
 
 /**
  * Get the path to the users data file
  */
 export const getUsersFilePath = (): string => {
-	return path.join(appRoot.path, 'data', 'users.json');
+  return path.join(appRoot.path, 'data', 'users.json');
 };
 
 /**
@@ -58,12 +58,12 @@ export const getUsersFilePath = (): string => {
  * In production: /build/public
  */
 export const getBuildPath = (): string => {
-	return path.join(appRoot.path, 'build', config.isProduction ? 'public' : '');
+  return path.join(appRoot.path, 'build', config.isProduction ? 'public' : '');
 };
 
 /**
  * Get the path to the data directory
  */
 export const getDataPath = (): string => {
-	return path.join(appRoot.path, 'data');
+  return path.join(appRoot.path, 'data');
 };
