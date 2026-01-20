@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
+import { normalizePhoneNumber } from '../utils/phoneNumber';
 
 const router = Router();
 
@@ -29,45 +30,77 @@ function escapeCSV(value: string | null | undefined): string {
 // Helper to parse CSV values
 function parseCSV(value: string): string {
 	if (!value) return '';
+	let result = value;
 	// Remove surrounding quotes and unescape double quotes
-	if (value.startsWith('"') && value.endsWith('"')) {
-		return value.slice(1, -1).replace(/""/g, '"');
+	if (result.startsWith('"') && result.endsWith('"')) {
+		result = result.slice(1, -1).replace(/""/g, '"');
 	}
-	return value;
+	// Convert \n escape sequences to actual newlines
+	result = result.replace(/\\n/g, '\n');
+	return result;
 }
 
-// Parse a CSV line handling quoted values with commas
-function parseCSVLine(line: string): string[] {
-	const result: string[] = [];
-	let current = '';
+// Parse entire CSV content into rows, properly handling newlines within quoted fields
+function parseCSVRows(csv: string): string[][] {
+	const rows: string[][] = [];
+	let currentRow: string[] = [];
+	let currentField = '';
 	let inQuotes = false;
 
-	for (let i = 0; i < line.length; i++) {
-		const char = line[i];
-		const nextChar = line[i + 1];
+	for (let i = 0; i < csv.length; i++) {
+		const char = csv[i];
+		const nextChar = csv[i + 1];
 
 		if (inQuotes) {
 			if (char === '"' && nextChar === '"') {
-				current += '"';
+				// Escaped quote
+				currentField += '"';
 				i++; // Skip next quote
 			} else if (char === '"') {
+				// End of quoted field
 				inQuotes = false;
 			} else {
-				current += char;
+				// Include character (including newlines) in field
+				currentField += char;
 			}
 		} else {
 			if (char === '"') {
+				// Start of quoted field
 				inQuotes = true;
 			} else if (char === ',') {
-				result.push(current.trim());
-				current = '';
+				// End of field
+				currentRow.push(currentField.trim());
+				currentField = '';
+			} else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
+				// End of row
+				if (char === '\r') i++; // Skip \n in \r\n
+				currentRow.push(currentField.trim());
+				if (currentRow.some((field) => field !== '')) {
+					rows.push(currentRow);
+				}
+				currentRow = [];
+				currentField = '';
+			} else if (char === '\r') {
+				// Standalone \r as newline
+				currentRow.push(currentField.trim());
+				if (currentRow.some((field) => field !== '')) {
+					rows.push(currentRow);
+				}
+				currentRow = [];
+				currentField = '';
 			} else {
-				current += char;
+				currentField += char;
 			}
 		}
 	}
-	result.push(current.trim());
-	return result;
+
+	// Handle last field/row if no trailing newline
+	currentRow.push(currentField.trim());
+	if (currentRow.some((field) => field !== '')) {
+		rows.push(currentRow);
+	}
+
+	return rows;
 }
 
 // GET /api/contacts/csv/export - Export contacts as CSV
@@ -284,13 +317,13 @@ router.post('/import', async (req: Request, res: Response) => {
 			return;
 		}
 
-		const lines = csv.split('\n').filter((line) => line.trim());
-		if (lines.length < 2) {
+		const rows = parseCSVRows(csv);
+		if (rows.length < 2) {
 			res.status(400).json({ error: 'CSV must have headers and at least one data row' });
 			return;
 		}
 
-		const headers = parseCSVLine(lines[0]);
+		const headers = rows[0];
 		const customFieldDefs = await prisma.customFieldDefinition.findMany();
 		const customFieldMap = new Map(customFieldDefs.map((cf) => [cf.id, cf]));
 
@@ -299,9 +332,9 @@ router.post('/import', async (req: Request, res: Response) => {
 			errors: [] as string[],
 		};
 
-		for (let i = 1; i < lines.length; i++) {
+		for (let i = 1; i < rows.length; i++) {
 			try {
-				const values = parseCSVLine(lines[i]);
+				const values = rows[i];
 				const data: Record<string, string> = {};
 
 				for (let j = 0; j < headers.length; j++) {
@@ -349,9 +382,12 @@ router.post('/import', async (req: Request, res: Response) => {
 				for (const type of CHANNEL_TYPES) {
 					const identifier = data[`${type}_identifier`];
 					if (identifier?.trim()) {
+						// Normalize phone numbers to E.164 format
+						const normalizedIdentifier = type === 'phone' ? normalizePhoneNumber(identifier.trim()) : identifier.trim();
+
 						const channel: (typeof channels)[0] = {
 							type,
-							identifier: identifier.trim(),
+							identifier: normalizedIdentifier,
 							label: data[`${type}_label`] || undefined,
 							isPrimary: data[`${type}_isPrimary`]?.toLowerCase() === 'true',
 						};

@@ -10,11 +10,19 @@ import {
 	MenuItem,
 	FormControl,
 	Autocomplete,
+	Button,
 } from '@mui/material';
-import { Edit as EditIcon, Check as SaveIcon, Close as CancelIcon } from '@mui/icons-material';
+import {
+	Edit as EditIcon,
+	Check as SaveIcon,
+	Close as CancelIcon,
+	CheckCircle as CheckCircleIcon,
+} from '@mui/icons-material';
 import { Contact, ChannelType, CustomFieldDefinition, Tag, Channel } from '../../types';
-import { updateContact, createTag } from '../../utils/contactsApi';
+import { updateContact, createTag, markContactedToday } from '../../utils/contactsApi';
 import MessageConversation from '../MessageConversation';
+import TagChip from '../TagChip';
+import { formatPhoneForDisplay } from '../../utils/phoneNumber';
 
 interface ContactDetailViewProps {
 	contact: Contact;
@@ -139,7 +147,7 @@ export default function ContactDetailView({
 			let lastName = contact.lastName || undefined;
 			let birthday = contact.birthday ? contact.birthday.split('T')[0] : undefined;
 			let notes = contact.notes || undefined;
-			let outreachFrequencyDays = contact.outreachFrequencyDays || undefined;
+			let outreachFrequencyDays: number | null | undefined = contact.outreachFrequencyDays ?? undefined;
 			let preferredContactMethod = contact.preferredContactMethod || undefined;
 			let channels = contact.channels.map((ch) => ({
 				type: ch.type,
@@ -160,9 +168,10 @@ export default function ContactDetailView({
 				firstName = editData.firstName as string;
 				lastName = (editData.lastName as string) || undefined;
 				birthday = (editData.birthday as string) || undefined;
-				outreachFrequencyDays = editData.outreachFrequencyDays
+				// Explicitly set to null when cleared to remove the value
+				outreachFrequencyDays = (editData.outreachFrequencyDays as string)
 					? parseInt(editData.outreachFrequencyDays as string)
-					: undefined;
+					: null;
 				preferredContactMethod = (editData.preferredContactMethod as string) || undefined;
 				tagIds = editData.tagIds as string[];
 			} else if (editingSection === 'channels') {
@@ -366,11 +375,11 @@ export default function ContactDetailView({
 							{contact.tags.length > 0 && (
 								<Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
 									{contact.tags.map((t) => (
-										<Chip key={t.tag.id} label={t.tag.name} size='small' />
+										<TagChip key={t.tag.id} tagName={t.tag.name} size='small' />
 									))}
 								</Box>
 							)}
-							<Box sx={{ display: 'flex', gap: 3, color: 'text.secondary', flexWrap: 'wrap' }}>
+							<Box sx={{ display: 'flex', gap: 3, color: 'text.secondary', flexWrap: 'wrap', alignItems: 'center' }}>
 								{contact.birthday && <Typography variant='body2'>{formatBirthday(contact.birthday)}</Typography>}
 								{contact.outreachFrequencyDays && (
 									<Typography variant='body2'>Contact every {contact.outreachFrequencyDays} days</Typography>
@@ -378,6 +387,27 @@ export default function ContactDetailView({
 								{contact.preferredContactMethod && (
 									<Typography variant='body2'>Prefers {getChannelTypeName(contact.preferredContactMethod)}</Typography>
 								)}
+								{contact.lastContacted && (
+									<Typography variant='body2'>
+										Last contacted: {new Date(contact.lastContacted).toLocaleDateString()}
+									</Typography>
+								)}
+							</Box>
+							<Box sx={{ mt: 2 }}>
+								<Button
+									variant='outlined'
+									size='small'
+									startIcon={<CheckCircleIcon />}
+									onClick={async () => {
+										try {
+											await markContactedToday(contact.id);
+											onContactUpdate();
+										} catch (error) {
+											console.error('Error marking contact:', error);
+										}
+									}}>
+									Mark Contacted Today
+								</Button>
 							</Box>
 						</>
 					)}
@@ -533,7 +563,11 @@ export default function ContactDetailView({
 									<Box key={idx}>
 										<Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
 											<Typography variant='body1' sx={{ fontWeight: 500 }}>
-												{ch.type === 'address' ? formatAddress(contact.channels[idx]) : ch.identifier}
+												{ch.type === 'address'
+													? formatAddress(contact.channels[idx])
+													: ch.type === 'phone'
+														? formatPhoneForDisplay(ch.identifier)
+														: ch.identifier}
 											</Typography>
 											<Typography variant='caption' color='text.secondary'>
 												{ch.typeName}

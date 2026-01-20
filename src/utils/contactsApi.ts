@@ -53,6 +53,16 @@ export async function deleteContact(id: string): Promise<void> {
 	}
 }
 
+export async function purgeAllContacts(): Promise<{ deleted: number }> {
+	const response = await fetch(getUrl('/api/contacts'), {
+		method: 'DELETE',
+	});
+	if (!response.ok) {
+		throw new Error('Failed to purge contacts');
+	}
+	return response.json();
+}
+
 // Lookups
 export async function fetchChannelTypes(): Promise<ChannelType[]> {
 	const response = await fetch(getUrl('/api/lookups/channel-types'));
@@ -119,6 +129,28 @@ export async function sendDiscordReminder(): Promise<void> {
 	if (!response.ok) {
 		throw new Error('Failed to send reminder');
 	}
+}
+
+// Sync last contacted dates from iMessage
+export async function syncLastContactedDates(): Promise<{ updated: number }> {
+	const response = await fetch(getUrl('/api/contacts/sync-last-contacted'), {
+		method: 'POST',
+	});
+	if (!response.ok) {
+		throw new Error('Failed to sync last contacted dates');
+	}
+	return response.json();
+}
+
+// Mark contact as contacted today
+export async function markContactedToday(id: string): Promise<Contact> {
+	const response = await fetch(getUrl(`/api/contacts/${id}/mark-contacted`), {
+		method: 'POST',
+	});
+	if (!response.ok) {
+		throw new Error('Failed to mark contact as contacted');
+	}
+	return response.json();
 }
 
 // Messages

@@ -73,6 +73,88 @@ export function getMessagesByPhoneNumber(phoneNumber: string, limit = 50): Messa
 	}));
 }
 
+/**
+ * Get the most recent message date for a phone number
+ * Returns null if no messages found
+ */
+export function getLastContactedDate(phoneNumber: string): Date | null {
+	const database = getDb();
+	const normalized = normalizePhoneNumber(phoneNumber);
+
+	// Try matching with and without + prefix
+	const variants = [normalized];
+	if (!normalized.startsWith('+')) {
+		variants.push(`+${normalized}`);
+		variants.push(`+1${normalized}`); // US country code
+	}
+
+	const placeholders = variants.map(() => '?').join(', ');
+	const stmt = database.prepare(`
+		SELECT MAX(date) as lastDate
+		FROM Messages
+		WHERE user_id IN (${placeholders})
+	`);
+
+	const row = stmt.get(...variants) as { lastDate: string | null } | undefined;
+
+	if (!row?.lastDate) {
+		return null;
+	}
+
+	return new Date(row.lastDate);
+}
+
+/**
+ * Get last contacted dates for multiple phone numbers in a single query
+ * Returns a map of normalized phone number to last contacted date
+ */
+export function getLastContactedDatesForPhones(phoneNumbers: string[]): Map<string, Date> {
+	if (phoneNumbers.length === 0) {
+		return new Map();
+	}
+
+	const database = getDb();
+
+	// Build all variants for all phone numbers
+	const variantToOriginal = new Map<string, string>();
+	for (const phone of phoneNumbers) {
+		const normalized = normalizePhoneNumber(phone);
+		variantToOriginal.set(normalized, phone);
+		if (!normalized.startsWith('+')) {
+			variantToOriginal.set(`+${normalized}`, phone);
+			variantToOriginal.set(`+1${normalized}`, phone);
+		}
+	}
+
+	const allVariants = Array.from(variantToOriginal.keys());
+	const placeholders = allVariants.map(() => '?').join(', ');
+
+	const stmt = database.prepare(`
+		SELECT user_id as userId, MAX(date) as lastDate
+		FROM Messages
+		WHERE user_id IN (${placeholders})
+		GROUP BY user_id
+	`);
+
+	const rows = stmt.all(...allVariants) as Array<{ userId: string; lastDate: string }>;
+
+	// Map results back to original phone numbers
+	const result = new Map<string, Date>();
+	for (const row of rows) {
+		const originalPhone = variantToOriginal.get(row.userId);
+		if (originalPhone && row.lastDate) {
+			const date = new Date(row.lastDate);
+			// Keep the most recent date if multiple variants match
+			const existing = result.get(originalPhone);
+			if (!existing || date > existing) {
+				result.set(originalPhone, date);
+			}
+		}
+	}
+
+	return result;
+}
+
 export function closeDb(): void {
 	if (db) {
 		db.close();

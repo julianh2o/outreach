@@ -47,6 +47,7 @@ export interface Contact {
 	notes?: string | null;
 	outreachFrequencyDays?: number | null;
 	preferredContactMethod?: string | null;
+	lastContacted?: string | null;
 	createdAt: string;
 	updatedAt: string;
 	channels: Channel[];
@@ -59,7 +60,7 @@ export interface ContactFormData {
 	lastName?: string;
 	birthday?: string;
 	notes?: string;
-	outreachFrequencyDays?: number;
+	outreachFrequencyDays?: number | null;
 	preferredContactMethod?: string;
 	channels: Omit<Channel, 'id'>[];
 	tagIds: string[];

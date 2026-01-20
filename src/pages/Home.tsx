@@ -9,6 +9,7 @@ import {
 	fetchChannelTypes,
 	fetchCustomFieldDefinitions,
 	fetchTags,
+	purgeAllContacts,
 	getExportUrl,
 	getTemplateUrl,
 	importContactsCSV,
@@ -154,6 +155,28 @@ export const Home = () => {
 		}
 	};
 
+	const handlePurgeAll = async () => {
+		if (window.confirm('Are you sure you want to delete ALL contacts? This action cannot be undone.')) {
+			try {
+				const result = await purgeAllContacts();
+				setSelectedContact(null);
+				setSnackbar({
+					open: true,
+					message: `Successfully deleted ${result.deleted} contacts.`,
+					severity: 'success',
+				});
+				loadData();
+			} catch (error) {
+				console.error('Purge failed:', error);
+				setSnackbar({
+					open: true,
+					message: 'Failed to purge contacts.',
+					severity: 'error',
+				});
+			}
+		}
+	};
+
 	return (
 		<>
 			<Helmet>
@@ -173,6 +196,7 @@ export const Home = () => {
 						onExport={handleExport}
 						onDownloadTemplate={handleDownloadTemplate}
 						onSendReminder={handleSendReminder}
+						onPurgeAll={handlePurgeAll}
 					/>
 					<input type='file' ref={fileInputRef} style={{ display: 'none' }} accept='.csv' onChange={handleFileChange} />
 				</Box>
