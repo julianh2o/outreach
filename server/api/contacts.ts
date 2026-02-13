@@ -139,11 +139,11 @@ router.get('/', async (req: Request, res: Response) => {
       };
     }
 
-    // Search by name (case-insensitive)
+    // Search by name (SQLite LIKE is case-insensitive for ASCII by default)
     if (search && typeof search === 'string') {
       where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
       ];
     }
 
