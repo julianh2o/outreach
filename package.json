@@ -11,7 +11,6 @@
     "url": "https://github.com/julianh2o/TEMPLATE_REPLACEME"
   },
   "dependencies": {
-    "@boundaryml/baml": "^0.217.0",
     "@libsql/client": "^0.15.15",
     "@prisma/adapter-libsql": "^7.2.0",
     "@prisma/client": "^7.2.0",
@@ -20,11 +19,9 @@
     "app-root-path": "^3.1.0",
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.5",
-    "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "node-cron": "^4.2.1",
     "twilio": "^5.11.1",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
@@ -32,7 +29,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
-    "dev": "yarn baml:generate && concurrently -n client,server -c blue,green \"yarn dev:client\" \"yarn dev:server\"",
+    "dev": "concurrently -n client,server -c blue,green \"yarn dev:client\" \"yarn dev:server\"",
     "dev:client": "PORT=2998 react-scripts start",
     "dev:server": "prisma migrate dev && NODE_ENV=development nodemon --watch server --ext ts --watch prisma/schema.prisma --exec 'tsx server/index.ts'",
     "build": "BUILD_PATH=build/public react-scripts build",
@@ -56,7 +53,6 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "baml:generate": "npx baml-cli generate",
     "syncer": "cd messages_sync_helper && venv/bin/python -m src",
     "ollama:models": "curl -s https://ollama.julianverse.net/api/tags | node -e \"const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log('Model'.padEnd(30)+'Size'.padEnd(10)+'Params'.padEnd(12)+'Quant');console.log('-'.repeat(60));d.models.forEach(m=>console.log(m.name.padEnd(30)+(m.size/1e9).toFixed(1).padStart(5)+'GB'.padEnd(5)+m.details.parameter_size.padEnd(12)+m.details.quantization_level))\""
   },
@@ -96,7 +92,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/material-ui": "^0.21.18",
     "@types/node": "^25.0.3",
-    "@types/node-cron": "^3.0.11",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/react-helmet": "^6.1.11",

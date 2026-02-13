@@ -6,10 +6,7 @@ import { config } from './config';
 import { prisma } from './db';
 import apiRouter from './api';
 import { getBuildPath } from './utils/paths';
-import { startDiscordBot } from './discord-bot';
-import { startWorker } from './services/processingQueue';
 import { initWebSocketServer } from './websocket';
-import { startMessageSyncJob } from './jobs/messageSync';
 
 const app = express();
 
@@ -59,30 +56,6 @@ if (
 
     // Initialize WebSocket server for message sync
     initWebSocketServer(server);
-
-    // Start message sync job (requests history when helper connects)
-    startMessageSyncJob();
-
-    // Start Discord bot
-    await startDiscordBot();
-
-    // Check LLM availability and start message analysis worker
-    try {
-      // LLM_ENDPOINT includes /v1 for OpenAI-compatible API, check /models endpoint
-      const llmResponse = await fetch(`${config.messageAnalysis.llmEndpoint}/models`);
-      if (llmResponse.ok) {
-        console.log(
-          `LLM available at ${config.messageAnalysis.llmEndpoint} (model: ${config.messageAnalysis.llmModel})`,
-        );
-        startWorker();
-        console.log('Message analysis worker started');
-      } else {
-        console.warn(`LLM endpoint returned status ${llmResponse.status}. Message analysis disabled.`);
-      }
-    } catch {
-      console.warn(`LLM endpoint not reachable at ${config.messageAnalysis.llmEndpoint}. Message analysis disabled.`);
-      console.warn('Ensure LLM_ENDPOINT is set correctly (should include /v1 for OpenAI-compatible API)');
-    }
   });
 } else {
   console.log('[DEBUG] Not starting server (condition not met)');

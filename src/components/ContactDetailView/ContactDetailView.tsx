@@ -23,7 +23,6 @@ import { updateContact, createTag, markContactedToday } from '../../utils/contac
 import MessageConversation from '../MessageConversation';
 import TagChip from '../TagChip';
 import { formatPhoneForDisplay } from '../../utils/phoneNumber';
-import SuggestedUpdates from '../SuggestedUpdates';
 
 interface ContactDetailViewProps {
   contact: Contact;
@@ -646,9 +645,6 @@ export default function ContactDetailView({
           </>
         )}
 
-        {/* AI Suggestions */}
-        <Divider sx={{ my: 2 }} />
-        <SuggestedUpdates contactId={contact.id} onUpdatesApplied={onContactUpdate} />
       </Box>
 
       {/* Right side - Messages */}

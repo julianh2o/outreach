@@ -9,34 +9,6 @@ interface Config {
   database: {
     url: string;
   };
-  discord: {
-    botToken: string | null;
-    userId: string | null;
-    allowedUsername: string | null;
-  };
-  tmux: {
-    sshHost: string;
-    sshUser: string;
-    tmuxSession: string;
-    claudeCommand: string;
-    messagePrefix: string;
-  };
-  messageAnalysis: {
-    llmEndpoint: string;
-    llmModel: string;
-    messageHistoryLimit: number;
-    batchMaxChars: number;
-    workerIntervalMs: number;
-    confidenceThreshold: number;
-  };
-}
-
-function getRequiredEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
 }
 
 function getOptionalEnv(key: string, defaultValue: string): string {
@@ -54,26 +26,6 @@ function createConfig(): Config {
     isTest: nodeEnv === 'test',
     database: {
       url: getOptionalEnv('DATABASE_URL', 'file:./data/.db'),
-    },
-    discord: {
-      botToken: process.env.DISCORD_BOT_TOKEN || null,
-      userId: process.env.DISCORD_USER_ID || null,
-      allowedUsername: process.env.DISCORD_ALLOWED_USERNAME || null,
-    },
-    tmux: {
-      sshHost: getOptionalEnv('TMUX_SSH_HOST', '10.10.0.14'),
-      sshUser: getOptionalEnv('TMUX_SSH_USER', 'julian'),
-      tmuxSession: getOptionalEnv('TMUX_SESSION', 'clod'),
-      claudeCommand: getOptionalEnv('TMUX_CLAUDE_COMMAND', 'cd ~/clod && claude'),
-      messagePrefix: getOptionalEnv('TMUX_MESSAGE_PREFIX', '[Discord from julianh2o]: '),
-    },
-    messageAnalysis: {
-      llmEndpoint: getOptionalEnv('LLM_ENDPOINT', 'http://localhost:11434'),
-      llmModel: getOptionalEnv('LLM_MODEL', 'llama3'),
-      messageHistoryLimit: parseInt(getOptionalEnv('MESSAGE_HISTORY_LIMIT', '500'), 10),
-      batchMaxChars: parseInt(getOptionalEnv('MESSAGE_BATCH_MAX_CHARS', '1000'), 10),
-      workerIntervalMs: parseInt(getOptionalEnv('ANALYSIS_WORKER_INTERVAL_MS', '5000'), 10),
-      confidenceThreshold: parseFloat(getOptionalEnv('SUGGESTION_CONFIDENCE_THRESHOLD', '0.7')),
     },
   };
 }
