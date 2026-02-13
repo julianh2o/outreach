@@ -53,8 +53,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "syncer": "cd messages_sync_helper && venv/bin/python -m src",
-    "ollama:models": "curl -s https://ollama.julianverse.net/api/tags | node -e \"const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log('Model'.padEnd(30)+'Size'.padEnd(10)+'Params'.padEnd(12)+'Quant');console.log('-'.repeat(60));d.models.forEach(m=>console.log(m.name.padEnd(30)+(m.size/1e9).toFixed(1).padStart(5)+'GB'.padEnd(5)+m.details.parameter_size.padEnd(12)+m.details.quantization_level))\""
+    "syncer": "cd messages_sync_helper && venv/bin/python -m src"
   },
   "eslintConfig": {
     "extends": [

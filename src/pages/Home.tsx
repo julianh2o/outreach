@@ -14,7 +14,6 @@ import {
   getExportUrl,
   getTemplateUrl,
   importContactsCSV,
-  sendDiscordReminder,
 } from '../utils/contactsApi';
 import ContactListSidebar from '../components/ContactListSidebar';
 import ContactDetailView from '../components/ContactDetailView';
@@ -153,24 +152,6 @@ export const Home = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleSendReminder = async () => {
-    try {
-      await sendDiscordReminder();
-      setSnackbar({
-        open: true,
-        message: 'Reminder sent to Discord.',
-        severity: 'success',
-      });
-    } catch (error) {
-      console.error('Failed to send reminder:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to send reminder.',
-        severity: 'error',
-      });
-    }
-  };
-
   const handlePurgeAll = async () => {
     if (window.confirm('Are you sure you want to delete ALL contacts? This action cannot be undone.')) {
       try {
@@ -212,7 +193,6 @@ export const Home = () => {
             onImport={handleImportClick}
             onExport={handleExport}
             onDownloadTemplate={handleDownloadTemplate}
-            onSendReminder={handleSendReminder}
             onPurgeAll={handlePurgeAll}
           />
           <input type='file' ref={fileInputRef} style={{ display: 'none' }} accept='.csv' onChange={handleFileChange} />

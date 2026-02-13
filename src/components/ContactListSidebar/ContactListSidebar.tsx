@@ -24,7 +24,6 @@ import {
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
   Description as TemplateIcon,
-  Notifications as NotificationsIcon,
   DeleteForever as PurgeIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -105,7 +104,6 @@ interface ContactListSidebarProps {
   onImport: () => void;
   onExport: () => void;
   onDownloadTemplate: () => void;
-  onSendReminder: () => void;
   onPurgeAll: () => void;
 }
 
@@ -117,7 +115,6 @@ export default function ContactListSidebar({
   onImport,
   onExport,
   onDownloadTemplate,
-  onSendReminder,
   onPurgeAll,
 }: ContactListSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,11 +142,6 @@ export default function ContactListSidebar({
   const handleTemplateClick = () => {
     handleMenuClose();
     onDownloadTemplate();
-  };
-
-  const handleSendReminderClick = () => {
-    handleMenuClose();
-    onSendReminder();
   };
 
   const handlePurgeAllClick = () => {
@@ -320,12 +312,6 @@ export default function ContactListSidebar({
               <TemplateIcon fontSize='small' />
             </ListItemIcon>
             <ListItemText>Download Template</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={handleSendReminderClick}>
-            <ListItemIcon>
-              <NotificationsIcon fontSize='small' />
-            </ListItemIcon>
-            <ListItemText>Send Reminder</ListItemText>
           </MenuItem>
           <MenuItem onClick={handlePurgeAllClick} sx={{ color: 'error.main' }}>
             <ListItemIcon>

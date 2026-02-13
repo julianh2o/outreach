@@ -121,16 +121,6 @@ export async function importContactsCSV(csv: string): Promise<{ imported: number
   return response.json();
 }
 
-// Discord
-export async function sendDiscordReminder(): Promise<void> {
-  const response = await fetch(getUrl('/api/discord/send-reminder'), {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to send reminder');
-  }
-}
-
 // Sync last contacted dates from iMessage
 export async function syncLastContactedDates(): Promise<{ updated: number }> {
   const response = await fetch(getUrl('/api/contacts/sync-last-contacted'), {
