@@ -1,13 +1,154 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
+import { Prisma } from '@prisma/client';
 import { getLastContactedDatesForHandles } from '../services/messageStorage';
 
 const router = Router();
 
-// GET /api/contacts - List all contacts
-router.get('/', async (_req: Request, res: Response) => {
+// Type for overdue contact response
+interface OverdueContactResponse {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  overdueDays: number;
+  outreachFrequencyDays: number;
+  lastContactDate: string | null;
+  channels: Array<{
+    id: string;
+    type: string;
+    identifier: string;
+    label: string | null;
+    isPrimary: boolean;
+  }>;
+  tags: Array<{
+    tag: {
+      id: string;
+      name: string;
+    };
+  }>;
+}
+
+// GET /api/contacts/overdue - Get contacts past their outreach frequency
+router.get('/overdue', async (req: Request, res: Response) => {
   try {
+    const daysParam = parseInt(req.query.days as string) || 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get contacts with outreachFrequencyDays set
     const contacts = await prisma.contact.findMany({
+      where: {
+        outreachFrequencyDays: { not: null },
+      },
+      include: {
+        channels: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
+
+    // Filter and calculate overdue days
+    const overdueContacts: OverdueContactResponse[] = [];
+
+    for (const contact of contacts) {
+      if (!contact.outreachFrequencyDays) continue;
+
+      // Calculate days since last contact
+      let daysSinceContact: number;
+      if (contact.lastContacted) {
+        const lastContactDate = new Date(contact.lastContacted);
+        lastContactDate.setHours(0, 0, 0, 0);
+        daysSinceContact = Math.floor(
+          (today.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+      } else {
+        // If never contacted, consider as very overdue
+        daysSinceContact = Infinity;
+      }
+
+      // Check if overdue: (today - last_contact) > outreachFrequencyDays + days param
+      const threshold = contact.outreachFrequencyDays + daysParam;
+      if (daysSinceContact > threshold) {
+        const overdueDays =
+          daysSinceContact === Infinity
+            ? contact.outreachFrequencyDays // Show frequency as overdue days if never contacted
+            : daysSinceContact - contact.outreachFrequencyDays;
+
+        overdueContacts.push({
+          id: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          overdueDays,
+          outreachFrequencyDays: contact.outreachFrequencyDays,
+          lastContactDate: contact.lastContacted?.toISOString() || null,
+          channels: contact.channels.map((ch) => ({
+            id: ch.id,
+            type: ch.type,
+            identifier: ch.identifier,
+            label: ch.label,
+            isPrimary: ch.isPrimary,
+          })),
+          tags: contact.tags.map((t) => ({
+            tag: {
+              id: t.tag.id,
+              name: t.tag.name,
+            },
+          })),
+        });
+      }
+    }
+
+    // Sort by most overdue first
+    overdueContacts.sort((a, b) => b.overdueDays - a.overdueDays);
+
+    res.json(overdueContacts);
+  } catch (error) {
+    console.error('Error fetching overdue contacts:', error);
+    res.status(500).json({ error: 'Failed to fetch overdue contacts' });
+  }
+});
+
+// GET /api/contacts - List all contacts with optional filtering
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const { tag, channelType, search } = req.query;
+
+    // Build where clause dynamically
+    const where: Prisma.ContactWhereInput = {};
+
+    // Filter by tag name
+    if (tag && typeof tag === 'string') {
+      where.tags = {
+        some: {
+          tag: {
+            name: tag,
+          },
+        },
+      };
+    }
+
+    // Filter by channel type
+    if (channelType && typeof channelType === 'string') {
+      where.channels = {
+        some: {
+          type: channelType,
+        },
+      };
+    }
+
+    // Search by name (case-insensitive)
+    if (search && typeof search === 'string') {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const contacts = await prisma.contact.findMany({
+      where,
       include: {
         channels: true,
         tags: {

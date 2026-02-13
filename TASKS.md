@@ -1,6 +1,6 @@
-# TASKS.md - Integration Removal Agent
+# TASKS.md - API Enhancement Agent
 
-**Branch**: `refactor/remove-integrations`
+**Branch**: `refactor/api-enhancement`
 **Status**: ACTIVE
 
 ## Instructions
@@ -11,65 +11,80 @@ Check this file periodically. If you see "STOP WORKING" below, stop immediately.
 
 ## Tasks
 
-### 1. Delete Integration Files
-- [ ] Delete `/server/discord-bot.ts`
-- [ ] Delete `/server/tmux-adapter.ts`
-- [ ] Delete `/server/tests/baml-test.ts`
-- [ ] Delete `/server/api/discord.ts`
-- [ ] Delete `/server/api/suggested-updates.ts`
-- [ ] Delete `/server/services/messageAnalyzer.ts`
-- [ ] Delete `/server/services/processingQueue.ts`
-- [ ] Delete `/server/services/messageBatcher.ts`
-- [ ] Delete `/server/jobs/messageSync.ts` (review first - if sync logic needed elsewhere, consolidate)
+### 1. Add Overdue Contacts Endpoint
 
-### 2. Delete BAML Infrastructure
-- [ ] Delete entire `/baml_src/` directory
-- [ ] Delete entire `/baml_client/` directory
+File: `/server/api/contacts.ts`
 
-### 3. Delete Frontend Components
-- [ ] Delete `/src/pages/Admin.tsx`
-- [ ] Delete entire `/src/components/SuggestedUpdates/` directory
+- [ ] Add new endpoint: `GET /api/contacts/overdue`
+- [ ] Query params:
+  - `days` (optional, number) - defaults to 0 (get all overdue)
+- [ ] Logic:
+  - Get contacts with `outreachFrequencyDays` set
+  - Calculate last contact date from messages
+  - Return contacts where (today - last_contact) > outreachFrequencyDays + days param
+- [ ] Response: Contact[] with `overdueDays` calculated field
 
-### 4. Modify server/index.ts
-- [ ] Remove import `startDiscordBot` from './discord-bot' (line 9)
-- [ ] Remove import `startWorker` from './services/processingQueue' (line 10)
-- [ ] Remove import `startMessageSyncJob` from './jobs/messageSync' (line 12) - review if needed
-- [ ] Remove `await startDiscordBot();` call (line 67)
-- [ ] Remove LLM availability check and worker start block (lines 70-85)
+### 2. Add Contact Filtering
 
-### 5. Modify server/config.ts
-- [ ] Remove discord config object (lines 12-16)
-- [ ] Remove tmux config object (lines 17-23)
-- [ ] Remove messageAnalysis config object (lines 24-31)
-- [ ] Remove Discord env var loading (lines 58-62)
-- [ ] Remove Tmux env var loading (lines 63-68)
-- [ ] Remove messageAnalysis env var loading (lines 69-76)
+File: `/server/api/contacts.ts`
 
-### 6. Modify package.json
-- [ ] Remove dependency `@boundaryml/baml`
-- [ ] Remove dependency `discord.js`
-- [ ] Remove dependency `node-cron`
-- [ ] Remove `baml:generate` script
-- [ ] Remove `yarn baml:generate &&` from dev script
+- [ ] Modify existing `GET /api/contacts` endpoint
+- [ ] Add query params:
+  - `tag` (string) - filter by tag name
+  - `channelType` (string) - filter by channel type (iMessage, etc.)
+  - `search` (string) - search by contact name (case-insensitive)
+- [ ] Ensure backward compatibility - no params = return all
 
-### 7. Modify .env.example
-- [ ] Remove LLM_ENDPOINT, LLM_MODEL
-- [ ] Remove MESSAGE_HISTORY_LIMIT, MESSAGE_BATCH_MAX_CHARS
-- [ ] Remove ANALYSIS_WORKER_INTERVAL_MS, SUGGESTION_CONFIDENCE_THRESHOLD
+### 3. Add Message Filtering
 
-### 8. Modify src/App.tsx
-- [ ] Remove `import { Admin }` (line 7)
-- [ ] Remove `/admin` route (line 23)
+File: `/server/api/messages.ts`
 
-### 9. Verification
-- [ ] Run `yarn install` - must succeed
+- [ ] Modify existing `GET /api/messages` endpoint (or create if doesn't exist)
+- [ ] Add query params:
+  - `contactId` (string) - filter by contact
+  - `limit` (number) - limit results (default 50)
+  - `offset` (number) - pagination offset (default 0)
+- [ ] Return messages sorted by date descending
+
+### 4. TypeScript Types
+
+- [ ] Ensure all new endpoints have proper TypeScript types
+- [ ] Add response types if not already defined
+- [ ] Use Prisma types where applicable
+
+### 5. Verification
+
+- [ ] Test `GET /api/contacts/overdue` returns correct data
+- [ ] Test `GET /api/contacts?tag=friend` filters correctly
+- [ ] Test `GET /api/contacts?search=john` searches correctly
+- [ ] Test `GET /api/messages?contactId=xxx&limit=10` works
 - [ ] Run `yarn typecheck` - must pass
-- [ ] Run `yarn build:server && yarn build` - must succeed
+- [ ] Run `yarn lint` - must pass
 
-## Critical Notes
+## API Response Examples
 
-**DO NOT DELETE**:
-- `/server/services/messageStorage.ts` - Used for iMessage sync
-- `/server/handlers/websocketHandlers.ts` - Core sync functionality
+```typescript
+// GET /api/contacts/overdue
+[
+  {
+    id: "clxxx",
+    name: "John Doe",
+    overdueDays: 5,
+    outreachFrequencyDays: 30,
+    lastContactDate: "2026-02-08T00:00:00Z",
+    // ... other contact fields
+  }
+]
 
-**COMMIT FREQUENTLY** with meaningful messages.
+// GET /api/contacts?tag=family&search=smith
+[
+  {
+    id: "clyyy",
+    name: "Jane Smith",
+    tags: [{ name: "family" }],
+    // ...
+  }
+]
+```
+
+**COMMIT** after each endpoint is implemented and tested.
