@@ -8,22 +8,19 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and Prisma schema (needed for postinstall hook)
 COPY package.json yarn.lock .yarnrc ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 
-# Install dependencies
+# Set DATABASE_URL for Prisma generate during postinstall
+ENV DATABASE_URL="file:./data/db.db"
+
+# Install dependencies (postinstall runs prisma generate)
 RUN yarn install --frozen-lockfile
 
 # Copy source code
 COPY . .
-
-# Copy Prisma schema and config
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-
-# Generate Prisma Client (set dummy DATABASE_URL for build)
-ENV DATABASE_URL="file:./data/db.db"
-RUN npx prisma generate
 
 # Build the server first (compile TypeScript to JavaScript -> build/)
 RUN yarn build:server
@@ -43,8 +40,8 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 # OCI standard labels
-LABEL org.opencontainers.image.title="Contact Directory"
-LABEL org.opencontainers.image.description="Personal contact management with iMessage integration"
+LABEL org.opencontainers.image.title="Outreach"
+LABEL org.opencontainers.image.description="Contact management and messaging platform"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
@@ -59,7 +56,9 @@ WORKDIR /app
 COPY package.json yarn.lock .yarnrc ./
 
 # Install production dependencies only
-RUN yarn install --frozen-lockfile --production && \
+# Use --ignore-scripts to skip postinstall (prisma generate) since we copy the
+# generated Prisma client from the builder stage
+RUN yarn install --frozen-lockfile --production --ignore-scripts && \
     yarn cache clean
 
 # Copy Prisma schema, config, and migrations

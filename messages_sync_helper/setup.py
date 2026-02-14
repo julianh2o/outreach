@@ -9,22 +9,23 @@ OPTIONS = {
     "argv_emulation": False,
     "iconfile": "assets/icon.icns",
     "plist": {
-        "CFBundleName": "Messages Sync Helper",
-        "CFBundleDisplayName": "Messages Sync Helper",
-        "CFBundleIdentifier": "com.justanotheragent.messages-sync-helper",
+        "CFBundleName": "Outreach Sync Helper",
+        "CFBundleDisplayName": "Outreach Sync Helper",
+        "CFBundleIdentifier": "net.julianverse.outreach.sync-helper",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
         "LSUIElement": True,  # No dock icon, menu bar only
         "LSMinimumSystemVersion": "12.0",
-        "NSSystemAdministrationUsageDescription": "Messages Sync Helper needs Full Disk Access to read your Messages database.",
+        "NSSystemAdministrationUsageDescription": "Outreach Sync Helper needs Full Disk Access to read your Messages database.",
         "NSHumanReadableCopyright": "Copyright 2025",
+        "OutreachWebSocketURL": "wss://outreach.julianverse.net/messages-sync",
     },
     "packages": ["rumps", "watchdog", "websockets"],
 }
 
 setup(
     app=APP,
-    name="Messages Sync Helper",
+    name="Outreach Sync Helper",
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
     setup_requires=["py2app"],

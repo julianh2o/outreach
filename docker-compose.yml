@@ -1,9 +1,10 @@
 services:
   app:
+    image: julianh2o/outreach:latest
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: contact-directory
+    container_name: outreach
     ports:
       - "2999:2999"
     environment:

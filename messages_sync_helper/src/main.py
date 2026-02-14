@@ -9,9 +9,13 @@ import sys
 import threading
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import rumps
+
+# Path to icon in assets folder
+ICON_PATH = Path(__file__).parent.parent / "assets" / "icon.png"
 
 from .config import FAILED_ATTACHMENTS_LOG, MESSAGES_DB_PATH, Config, get_config
 from .db_worker import DatabaseWorker
@@ -320,8 +324,8 @@ class MessagesSyncHelperApp(rumps.App):
 
     def __init__(self):
         super().__init__(
-            name="Messages Sync",
-            icon=None,  # Will use default or custom icon
+            name="Outreach Sync",
+            icon=str(ICON_PATH) if ICON_PATH.exists() else None,
             quit_button=None,  # We'll add our own
         )
 

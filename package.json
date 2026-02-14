@@ -1,14 +1,14 @@
 {
-  "name": "TEMPLATE_REPLACEME",
+  "name": "outreach",
   "version": "1.0.19",
-  "description": "TEMPLATE_REPLACEME - Your event management solution",
+  "description": "Outreach - Contact management and messaging",
   "author": {
     "name": "Julian Hartline",
-    "url": "https://TEMPLATE_REPLACEME.bawdyshop.space"
+    "url": "https://outreach.julianverse.net"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/julianh2o/TEMPLATE_REPLACEME"
+    "url": "https://github.com/julianh2o/outreach"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
@@ -35,6 +35,9 @@
     "build": "BUILD_PATH=build/public react-scripts build",
     "build:server": "prisma generate && tsc --project server/tsconfig.json && mkdir -p build && cp -r src/config build/",
     "build:local": "bash scripts/build-local.sh",
+    "build:sync-helper": "bash scripts/build-sync-helper.sh",
+    "docker:build": "bash scripts/docker-build.sh",
+    "docker:push": "bash scripts/docker-build.sh --push",
     "start": "NODE_ENV=production node build/index.js",
     "preview": "prisma migrate deploy && yarn build:server && yarn build && yarn start",
     "test": "yarn test:client && yarn test:server",

@@ -13,6 +13,7 @@ import {
   purgeAllContacts,
   getExportUrl,
   getTemplateUrl,
+  getSyncHelperUrl,
   importContactsCSV,
 } from '../utils/contactsApi';
 import ContactListSidebar from '../components/ContactListSidebar';
@@ -109,6 +110,10 @@ export const Home = () => {
     window.open(getTemplateUrl(), '_blank');
   };
 
+  const handleDownloadSyncHelper = () => {
+    window.open(getSyncHelperUrl(), '_blank');
+  };
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -193,6 +198,7 @@ export const Home = () => {
             onImport={handleImportClick}
             onExport={handleExport}
             onDownloadTemplate={handleDownloadTemplate}
+            onDownloadSyncHelper={handleDownloadSyncHelper}
             onPurgeAll={handlePurgeAll}
           />
           <input type='file' ref={fileInputRef} style={{ display: 'none' }} accept='.csv' onChange={handleFileChange} />

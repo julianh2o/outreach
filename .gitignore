@@ -29,6 +29,7 @@ yarn-error.log*
 
 # iMessage data
 *.sqlite
+*.db
 /csv
 
 # Python

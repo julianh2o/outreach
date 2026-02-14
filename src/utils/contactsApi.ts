@@ -109,6 +109,11 @@ export function getTemplateUrl(): string {
   return getUrl('/api/contacts/csv/template');
 }
 
+// Sync Helper Download
+export function getSyncHelperUrl(): string {
+  return getUrl('/api/downloads/sync-helper');
+}
+
 export async function importContactsCSV(csv: string): Promise<{ imported: number; errors: string[] }> {
   const response = await fetch(getUrl('/api/contacts/csv/import'), {
     method: 'POST',

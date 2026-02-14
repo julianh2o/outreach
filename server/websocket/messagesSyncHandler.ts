@@ -436,6 +436,9 @@ export function handleConnection(ws: WebSocket): void {
     onConnectedCallback();
   }
 
+  // Start history sync to catch up on any missed messages
+  startHistorySync();
+
   ws.on('message', async (rawData) => {
     try {
       const data = JSON.parse(rawData.toString()) as IncomingPayload;

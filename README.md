@@ -51,57 +51,48 @@ PORT=2999                    # Server port (default: 2999)
 DATABASE_URL="file:./data/db.db"  # SQLite database path
 ```
 
-## API Endpoints
+## API
 
-### Contacts
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/contacts` | List all contacts |
-| GET | `/api/contacts/:id` | Get contact by ID |
-| POST | `/api/contacts` | Create contact |
-| PUT | `/api/contacts/:id` | Update contact |
-| DELETE | `/api/contacts/:id` | Delete contact |
-| DELETE | `/api/contacts` | Purge all contacts |
-| POST | `/api/contacts/:id/mark-contacted` | Mark contact as contacted today |
-| POST | `/api/contacts/sync-last-contacted` | Sync last contacted dates from iMessage |
-
-### Messages
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/messages/:phoneNumber` | Get messages for phone number |
-| POST | `/api/messages/send` | Send iMessage via helper |
-| POST | `/api/messages/purge-all` | Delete all stored messages |
-
-### Lookups
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/lookups/channel-types` | List channel types |
-| GET | `/api/lookups/custom-fields` | List custom field definitions |
-| GET | `/api/lookups/tags` | List all tags |
-| POST | `/api/lookups/tags` | Create new tag |
-
-### Attachments
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/attachments/:filename` | Serve attachment file |
-
-### CSV Import/Export
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/contacts/csv` | Export contacts as CSV |
-| POST | `/api/contacts/csv` | Import contacts from CSV |
+See [API.md](API.md) for endpoint documentation.
 
 ## Docker
 
+### Using Docker Compose (recommended)
+
 ```bash
-# Build image
-docker build -t contact-directory .
+docker compose up -d
+```
+
+### Manual Docker Commands
+
+```bash
+# Build locally
+docker build -t outreach .
 
 # Run container
-docker run -p 2999:2999 -v ./data:/app/data contact-directory
+docker run -p 2999:2999 -v ./data:/app/data outreach
+```
+
+### Build Scripts
+
+```bash
+yarn docker:build        # Build image locally
+yarn docker:push         # Build and push to Docker Hub
+```
+
+The build script automatically tags with the git version and `latest`:
+
+```bash
+# Build with custom version
+./scripts/docker-build.sh --version 1.0.0
+
+# Build and push to registry
+./scripts/docker-build.sh --push
+```
+
+### Pulling from Docker Hub
+
+```bash
+docker pull julianh2o/outreach:latest
+docker run -p 2999:2999 -v ./data:/app/data julianh2o/outreach:latest
 ```

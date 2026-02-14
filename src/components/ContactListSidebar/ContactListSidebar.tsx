@@ -27,6 +27,7 @@ import {
   DeleteForever as PurgeIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  SyncAlt as SyncHelperIcon,
 } from '@mui/icons-material';
 import { Contact } from '../../types';
 import TagChip from '../TagChip';
@@ -104,6 +105,7 @@ interface ContactListSidebarProps {
   onImport: () => void;
   onExport: () => void;
   onDownloadTemplate: () => void;
+  onDownloadSyncHelper: () => void;
   onPurgeAll: () => void;
 }
 
@@ -115,6 +117,7 @@ export default function ContactListSidebar({
   onImport,
   onExport,
   onDownloadTemplate,
+  onDownloadSyncHelper,
   onPurgeAll,
 }: ContactListSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +145,11 @@ export default function ContactListSidebar({
   const handleTemplateClick = () => {
     handleMenuClose();
     onDownloadTemplate();
+  };
+
+  const handleSyncHelperClick = () => {
+    handleMenuClose();
+    onDownloadSyncHelper();
   };
 
   const handlePurgeAllClick = () => {
@@ -312,6 +320,12 @@ export default function ContactListSidebar({
               <TemplateIcon fontSize='small' />
             </ListItemIcon>
             <ListItemText>Download Template</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleSyncHelperClick}>
+            <ListItemIcon>
+              <SyncHelperIcon fontSize='small' />
+            </ListItemIcon>
+            <ListItemText>Download Sync Helper</ListItemText>
           </MenuItem>
           <MenuItem onClick={handlePurgeAllClick} sx={{ color: 'error.main' }}>
             <ListItemIcon>
