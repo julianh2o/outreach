@@ -61,10 +61,10 @@ APP_NAME="Outreach Sync Helper"
 echo "Signing app bundle..."
 codesign --force --deep --sign - "dist/$APP_NAME.app"
 
-# Create ZIP archive
+# Create ZIP archive using ditto (preserves macOS code signing)
 cd dist
 echo "Creating ZIP archive..."
-zip -r -q "$APP_NAME.zip" "$APP_NAME.app"
+ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
 mv "$APP_NAME.zip" "$OUTPUT_DIR/"
 
 echo "Build complete: $OUTPUT_DIR/$APP_NAME.zip"
