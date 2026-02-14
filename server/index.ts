@@ -34,7 +34,7 @@ if (config.isProduction) {
 const server = createServer(app);
 
 // Start the server
-// Check for TypeScript (server/index.ts), old compiled (server/dist/index.js), or new compiled (build/index.js) paths
+// Check for TypeScript (server/index.ts) or compiled (build/server/index.js) paths
 console.log('[DEBUG] process.argv[1]:', process.argv[1]);
 if (
   process.argv[1]?.includes('server/index') ||
