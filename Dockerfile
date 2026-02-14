@@ -22,11 +22,21 @@ RUN yarn install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Preserve the sync helper zip before frontend build clears build/public/
+RUN if [ -f "build/public/Outreach Sync Helper.zip" ]; then \
+      cp "build/public/Outreach Sync Helper.zip" /tmp/; \
+    fi
+
 # Build the server first (compile TypeScript to JavaScript -> build/)
 RUN yarn build:server
 
 # Build the frontend (outputs to build/public/)
 RUN yarn build
+
+# Restore the sync helper zip after frontend build
+RUN if [ -f "/tmp/Outreach Sync Helper.zip" ]; then \
+      cp "/tmp/Outreach Sync Helper.zip" "build/public/"; \
+    fi
 
 # Copy config files to build directory
 RUN cp -r src/config build/config

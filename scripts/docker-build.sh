@@ -4,6 +4,15 @@
 
 set -e
 
+# Check for uncommitted changes
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Error: Working directory has uncommitted changes."
+    echo "Please commit your changes before building a Docker image."
+    echo ""
+    git status --short
+    exit 1
+fi
+
 IMAGE_NAME="julianh2o/outreach"
 PLATFORM="linux/amd64"
 
@@ -31,6 +40,10 @@ done
 
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Build the sync helper first (outputs to build/public/)
+echo "Building sync helper..."
+yarn build:sync-helper
 
 echo "Building $IMAGE_NAME:$VERSION for $PLATFORM"
 echo "  Build date: $BUILD_DATE"
