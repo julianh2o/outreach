@@ -50,9 +50,6 @@ def get_default_websocket_url() -> str:
 class Config:
     """Application configuration."""
 
-    # WebSocket connection
-    websocket_url: str = field(default_factory=get_default_websocket_url)
-
     # Sync settings
     poll_interval_seconds: float = 1.0  # Fallback polling interval
     use_file_watcher: bool = True  # Use fsevents for low-latency
@@ -64,11 +61,18 @@ class Config:
     last_message_rowid: int = 0
     last_attachment_rowid: int = 0
 
+    @property
+    def websocket_url(self) -> str:
+        """Get WebSocket URL based on runtime environment (never persisted)."""
+        return get_default_websocket_url()
+
     def save(self) -> None:
         """Save configuration to disk."""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        # Don't persist websocket_url - it's determined at runtime
+        data = {k: v for k, v in self.__dict__.items() if k != "websocket_url"}
         with open(CONFIG_FILE, "w") as f:
-            json.dump(self.__dict__, f, indent=2)
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load(cls) -> "Config":
@@ -77,6 +81,8 @@ class Config:
             try:
                 with open(CONFIG_FILE) as f:
                     data = json.load(f)
+                # Remove websocket_url if present (legacy config files)
+                data.pop("websocket_url", None)
                 return cls(**data)
             except (json.JSONDecodeError, TypeError):
                 pass

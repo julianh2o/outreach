@@ -3,7 +3,7 @@
 from setuptools import setup
 
 APP = ["src/main.py"]
-DATA_FILES = []
+DATA_FILES = [("assets", ["assets/icon.png"])]
 
 OPTIONS = {
     "argv_emulation": False,

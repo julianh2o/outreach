@@ -14,8 +14,13 @@ from typing import Optional
 
 import rumps
 
-# Path to icon in assets folder
-ICON_PATH = Path(__file__).parent.parent / "assets" / "icon.png"
+# Path to icon in assets folder - handle both dev and bundled app
+if getattr(sys, "frozen", False):
+    # Running as bundled app - icon is in Resources/assets/
+    ICON_PATH = Path(sys.executable).parent.parent / "Resources" / "assets" / "icon.png"
+else:
+    # Running in development
+    ICON_PATH = Path(__file__).parent.parent / "assets" / "icon.png"
 
 from config import FAILED_ATTACHMENTS_LOG, MESSAGES_DB_PATH, Config, get_config
 from db_worker import DatabaseWorker
