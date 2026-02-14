@@ -7,7 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SYNC_HELPER_DIR="$PROJECT_ROOT/messages_sync_helper"
-OUTPUT_DIR="$PROJECT_ROOT/build/public"
+OUTPUT_DIR="$PROJECT_ROOT/resources"
 
 echo "Building Outreach Sync Helper..."
 

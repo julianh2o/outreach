@@ -3,11 +3,8 @@ node_modules
 npm-debug.log
 yarn-error.log
 
-# Build output (exclude all except sync helper zip)
-build/*
-!build/public
-build/public/*
-!build/public/Outreach Sync Helper.zip
+# Build output
+build
 dist
 
 # Development files
