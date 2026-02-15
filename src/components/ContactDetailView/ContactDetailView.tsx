@@ -31,6 +31,7 @@ interface ContactDetailViewProps {
   tags: Tag[];
   onContactUpdate: () => void;
   onTagsChange: (tags: Tag[]) => void;
+  hideMessages?: boolean;
 }
 
 type EditingSection = 'basic' | 'channels' | 'custom' | 'notes' | null;
@@ -58,6 +59,7 @@ export default function ContactDetailView({
   tags,
   onContactUpdate,
   onTagsChange,
+  hideMessages = false,
 }: ContactDetailViewProps) {
   const [editingSection, setEditingSection] = useState<EditingSection>(null);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
@@ -648,7 +650,7 @@ export default function ContactDetailView({
       </Box>
 
       {/* Right side - Messages */}
-      {phoneChannel && (
+      {phoneChannel && !hideMessages && (
         <Box
           sx={{
             width: 380,

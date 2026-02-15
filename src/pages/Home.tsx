@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Paper, Snackbar, Alert } from '@mui/material';
+import { Box, Typography, Paper, Snackbar, Alert, Dialog, AppBar, Toolbar, IconButton, useMediaQuery, useTheme } from '@mui/material';
+import { ArrowBack, Mail } from '@mui/icons-material';
+import MessageConversation from '../components/MessageConversation';
 
 import { APP_TITLE, PAGE_TITLE_HOME } from '../utils/constants';
 import { Contact, ChannelType, CustomFieldDefinition, Tag } from '../types';
@@ -15,6 +17,7 @@ import {
   getTemplateUrl,
   getSyncHelperUrl,
   importContactsCSV,
+  fetchMessages,
 } from '../utils/contactsApi';
 import ContactListSidebar from '../components/ContactListSidebar';
 import ContactDetailView from '../components/ContactDetailView';
@@ -23,8 +26,12 @@ import ContactDialog from '../components/ContactDialog';
 export const Home = () => {
   const { contactId } = useParams<{ contactId: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [hasMessages, setHasMessages] = useState(false);
   const [channelTypes, setChannelTypes] = useState<ChannelType[]>([]);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -80,6 +87,21 @@ export const Home = () => {
     }
   }, [contactId, contacts, selectedContact]);
 
+  // Check if selected contact has stored messages
+  useEffect(() => {
+    setHasMessages(false);
+    const phoneChannel = selectedContact?.channels.find((ch) => ch.type === 'phone');
+    if (!phoneChannel) return;
+
+    let cancelled = false;
+    fetchMessages(phoneChannel.identifier, 1)
+      .then((msgs) => {
+        if (!cancelled) setHasMessages(msgs.length > 0);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedContact?.id, selectedContact?.channels]);
+
   const handleSelectContact = (contact: Contact) => {
     setSelectedContact(contact);
     navigate(`/conversation/${contact.id}`, { replace: true });
@@ -100,6 +122,12 @@ export const Home = () => {
 
   const handleContactUpdate = () => {
     loadData();
+  };
+
+  const handleCloseContactDetail = () => {
+    setSelectedContact(null);
+    setMessagesOpen(false);
+    navigate('/', { replace: true });
   };
 
   const handleExport = () => {
@@ -187,9 +215,9 @@ export const Home = () => {
           {PAGE_TITLE_HOME} | {APP_TITLE}
         </title>
       </Helmet>
-      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-        {/* Left sidebar - Contact list */}
-        <Box sx={{ width: 350, flexShrink: 0 }}>
+      {isMobile ? (
+        /* ===== Mobile Layout ===== */
+        <Box sx={{ height: '100vh', overflow: 'hidden' }}>
           <ContactListSidebar
             contacts={contacts}
             selectedContactId={selectedContact?.id || null}
@@ -202,37 +230,114 @@ export const Home = () => {
             onPurgeAll={handlePurgeAll}
           />
           <input type='file' ref={fileInputRef} style={{ display: 'none' }} accept='.csv' onChange={handleFileChange} />
-        </Box>
 
-        {/* Right panel - Contact detail */}
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          {loading && contacts.length === 0 ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography color='text.secondary'>Loading...</Typography>
-            </Box>
-          ) : selectedContact ? (
-            <ContactDetailView
-              contact={selectedContact}
-              channelTypes={channelTypes}
-              customFieldDefs={customFieldDefs}
-              tags={tags}
-              onContactUpdate={handleContactUpdate}
-              onTagsChange={setTags}
-            />
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 400 }}>
-                <Typography variant='h6' gutterBottom>
-                  Select a contact
+          {/* Contact Detail Dialog */}
+          <Dialog fullScreen open={!!selectedContact} onClose={handleCloseContactDetail}>
+            <AppBar sx={{ position: 'relative' }}>
+              <Toolbar>
+                <IconButton edge='start' color='inherit' onClick={handleCloseContactDetail} aria-label='back'>
+                  <ArrowBack />
+                </IconButton>
+                <Typography sx={{ ml: 1, flex: 1 }} variant='h6' component='div'>
+                  {selectedContact?.firstName} {selectedContact?.lastName || ''}
                 </Typography>
-                <Typography variant='body2' color='text.secondary'>
-                  Choose a contact from the list to view their details, or click the + button to add a new contact.
+                {selectedContact?.channels.some((ch) => ch.type === 'phone') && (
+                  <IconButton
+                    color='inherit'
+                    onClick={() => setMessagesOpen(true)}
+                    disabled={!hasMessages}
+                    aria-label='messages'
+                    sx={{ opacity: hasMessages ? 1 : 0.3 }}
+                  >
+                    <Mail />
+                  </IconButton>
+                )}
+              </Toolbar>
+            </AppBar>
+            {selectedContact && (
+              <ContactDetailView
+                contact={selectedContact}
+                channelTypes={channelTypes}
+                customFieldDefs={customFieldDefs}
+                tags={tags}
+                onContactUpdate={handleContactUpdate}
+                onTagsChange={setTags}
+                hideMessages
+              />
+            )}
+          </Dialog>
+
+          {/* Messages Dialog */}
+          <Dialog fullScreen open={messagesOpen} onClose={() => setMessagesOpen(false)}>
+            <AppBar sx={{ position: 'relative' }}>
+              <Toolbar>
+                <IconButton edge='start' color='inherit' onClick={() => setMessagesOpen(false)} aria-label='back'>
+                  <ArrowBack />
+                </IconButton>
+                <Typography sx={{ ml: 1, flex: 1 }} variant='h6' component='div'>
+                  Messages - {selectedContact?.firstName} {selectedContact?.lastName || ''}
                 </Typography>
-              </Paper>
+              </Toolbar>
+            </AppBar>
+            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+              {selectedContact?.channels.find((ch) => ch.type === 'phone') && (
+                <MessageConversation
+                  phoneNumber={selectedContact.channels.find((ch) => ch.type === 'phone')!.identifier}
+                  contactName={`${selectedContact.firstName} ${selectedContact.lastName || ''}`.trim()}
+                />
+              )}
             </Box>
-          )}
+          </Dialog>
         </Box>
-      </Box>
+      ) : (
+        /* ===== Desktop Layout ===== */
+        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+          {/* Left sidebar - Contact list */}
+          <Box sx={{ width: 350, flexShrink: 0 }}>
+            <ContactListSidebar
+              contacts={contacts}
+              selectedContactId={selectedContact?.id || null}
+              onSelectContact={handleSelectContact}
+              onAddContact={handleAddContact}
+              onImport={handleImportClick}
+              onExport={handleExport}
+              onDownloadTemplate={handleDownloadTemplate}
+              onDownloadSyncHelper={handleDownloadSyncHelper}
+              onPurgeAll={handlePurgeAll}
+            />
+            <input type='file' ref={fileInputRef} style={{ display: 'none' }} accept='.csv' onChange={handleFileChange} />
+          </Box>
+
+          {/* Right panel - Contact detail */}
+          <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            {loading && contacts.length === 0 ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Typography color='text.secondary'>Loading...</Typography>
+              </Box>
+            ) : selectedContact ? (
+              <ContactDetailView
+                contact={selectedContact}
+                channelTypes={channelTypes}
+                customFieldDefs={customFieldDefs}
+                tags={tags}
+                onContactUpdate={handleContactUpdate}
+                onTagsChange={setTags}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 400 }}>
+                  <Typography variant='h6' gutterBottom>
+                    Select a contact
+                  </Typography>
+                  <Typography variant='body2' color='text.secondary'>
+                    Choose a contact from the list to view their details, or click the + button to add a new contact.
+                  </Typography>
+                </Paper>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
 
       <ContactDialog
         open={dialogOpen}
