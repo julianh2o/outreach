@@ -18,7 +18,7 @@ PLATFORM="linux/amd64"
 
 # Parse arguments
 PUSH=false
-VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION=$(node -p "require('./package.json').version")
 
 while [[ $# -gt 0 ]]; do
     case $1 in
