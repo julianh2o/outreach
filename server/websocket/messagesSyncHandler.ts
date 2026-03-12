@@ -15,6 +15,7 @@ import {
 // Message types from the Python helper
 interface NewMessagesPayload {
   type: 'new_messages';
+  client_id: string;
   messages: IncomingMessage[];
   timestamp: string;
 }
@@ -28,6 +29,7 @@ interface AttachmentPayload {
 
 interface HistoryResponsePayload {
   type: 'history_response';
+  client_id: string;
   messages: IncomingMessage[];
   since_rowid?: number;
   before_rowid?: number;
@@ -64,6 +66,7 @@ type OutgoingPayload = SendMessagePayload | PingPayload | RequestHistoryPayload;
 let helperConnection: WebSocket | null = null;
 let lastPongTime: number = 0;
 let pingInterval: ReturnType<typeof setInterval> | null = null;
+let currentClientId: string | null = null;
 
 // Callbacks for connection events
 type ConnectionCallback = () => void;
@@ -170,6 +173,22 @@ export function requestLatestHistory(limit = 500): boolean {
  * Handle an incoming message from the helper
  */
 async function handleIncomingMessage(data: IncomingPayload): Promise<void> {
+  // Extract and validate client_id from messages that include it
+  if ('client_id' in data && data.client_id) {
+    if (!currentClientId) {
+      currentClientId = data.client_id;
+      console.log(`[MessageSync] Client connected: ${currentClientId}`);
+    } else if (currentClientId !== data.client_id) {
+      console.warn(
+        `[MessageSync] Client ID mismatch: expected ${currentClientId}, got ${data.client_id}`,
+      );
+    }
+  } else if (data.type === 'new_messages' || data.type === 'history_response') {
+    // These message types MUST have client_id
+    console.error(`[MessageSync] Rejected ${data.type}: missing client_id`);
+    throw new Error('client_id is required');
+  }
+
   switch (data.type) {
     case 'new_messages':
       await handleNewMessages(data);
@@ -193,15 +212,39 @@ async function handleIncomingMessage(data: IncomingPayload): Promise<void> {
 }
 
 async function handleNewMessages(data: NewMessagesPayload): Promise<void> {
-  const count = await storeMessages(data.messages);
-  console.log(`[MessageSync] Stored ${count} new messages`);
+  const count = await storeMessages(data.messages, data.client_id);
 
-  // Update sync cursor to highest rowid
+  // Log message details for debugging
+  if (data.messages.length > 0) {
+    const minDate = new Date(Math.min(...data.messages.map((m) => new Date(m.date).getTime())));
+    const maxDate = new Date(Math.max(...data.messages.map((m) => new Date(m.date).getTime())));
+    const minRowid = Math.min(...data.messages.map((m) => m.rowid));
+    const maxRowid = Math.max(...data.messages.map((m) => m.rowid));
+
+    console.log(
+      `[MessageSync:${data.client_id}] Stored ${count} new messages ` +
+      `(rowid ${minRowid}-${maxRowid}, dates ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]})`
+    );
+
+    // Log a few sample messages
+    const samples = data.messages.slice(0, 3);
+    samples.forEach((msg) => {
+      const textPreview = msg.text ? msg.text.substring(0, 50).replace(/\n/g, ' ') : '<no text>';
+      const direction = msg.is_from_me ? 'sent to' : 'from';
+      console.log(
+        `[MessageSync:${data.client_id}]   - ${direction} ${msg.handle_id}: "${textPreview}" (${new Date(msg.date).toISOString()})`
+      );
+    });
+  } else {
+    console.log(`[MessageSync:${data.client_id}] Stored ${count} new messages`);
+  }
+
+  // Update sync cursor to highest rowid for this client
   if (data.messages.length > 0) {
     const maxRowid = Math.max(...data.messages.map((m) => m.rowid));
-    const currentCursor = await getSyncCursor();
+    const currentCursor = await getSyncCursor(data.client_id);
     if (maxRowid > currentCursor) {
-      await updateSyncCursor(maxRowid);
+      await updateSyncCursor(data.client_id, maxRowid);
     }
   }
 }
@@ -264,27 +307,32 @@ export async function startHistorySync(): Promise<void> {
     return;
   }
 
+  if (!currentClientId) {
+    console.warn('[MessageSync] Cannot start history sync: no client connected');
+    return;
+  }
+
   const [messageCount, maxRowid, minRowid] = await Promise.all([
-    getStoredMessageCount(),
-    getMaxStoredRowid(),
-    getMinStoredRowid(),
+    getStoredMessageCount(currentClientId),
+    getMaxStoredRowid(currentClientId),
+    getMinStoredRowid(currentClientId),
   ]);
 
-  console.log(`[MessageSync] Current state: ${messageCount} messages stored, rowid range ${minRowid}-${maxRowid}`);
+  console.log(`[MessageSync:${currentClientId}] Current state: ${messageCount} messages stored, rowid range ${minRowid}-${maxRowid}`);
 
   if (messageCount === 0) {
-    // No messages stored, start from latest and work backwards
+    // No messages stored for this client, start from latest and work backwards
     historySyncInProgress = true;
     historyBatchesLoaded = 0;
     syncMode = 'old';
-    console.log('[MessageSync] No messages stored, starting fresh sync from latest');
+    console.log(`[MessageSync:${currentClientId}] No messages stored, starting fresh sync from latest`);
     requestLatestHistory(BATCH_SIZE);
   } else {
     // We have messages - first get any new messages since our max rowid
     historySyncInProgress = true;
     historyBatchesLoaded = 0;
     syncMode = 'new';
-    console.log(`[MessageSync] Requesting new messages since rowid ${maxRowid}`);
+    console.log(`[MessageSync:${currentClientId}] Requesting new messages since rowid ${maxRowid}`);
     requestHistorySince(maxRowid, BATCH_SIZE);
   }
 }
@@ -294,26 +342,40 @@ async function handleHistoryResponse(data: HistoryResponsePayload): Promise<void
   const direction = data.before_rowid ? 'before' : data.since_rowid ? 'since' : 'latest';
   const rowid = data.before_rowid || data.since_rowid || 'latest';
 
-  // Log rowid range if we have messages
+  // Log rowid range and date range if we have messages
   if (messageCount > 0) {
     const minRowid = Math.min(...data.messages.map((m) => m.rowid));
     const maxRowid = Math.max(...data.messages.map((m) => m.rowid));
+    const minDate = new Date(Math.min(...data.messages.map((m) => new Date(m.date).getTime())));
+    const maxDate = new Date(Math.max(...data.messages.map((m) => new Date(m.date).getTime())));
+
     console.log(
-      `[MessageSync] Received ${messageCount} messages (${direction} rowid ${rowid}, range ${minRowid}-${maxRowid})`,
+      `[MessageSync:${data.client_id}] Received ${messageCount} messages (${direction} rowid ${rowid}, ` +
+      `range ${minRowid}-${maxRowid}, dates ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]})`
     );
+
+    // Log a few sample messages
+    const samples = data.messages.slice(0, 2);
+    samples.forEach((msg) => {
+      const textPreview = msg.text ? msg.text.substring(0, 50).replace(/\n/g, ' ') : '<no text>';
+      const direction = msg.is_from_me ? 'sent to' : 'from';
+      console.log(
+        `[MessageSync:${data.client_id}]   - ${direction} ${msg.handle_id}: "${textPreview}" (${new Date(msg.date).toISOString()})`
+      );
+    });
   } else {
-    console.log(`[MessageSync] Received 0 messages (${direction} rowid ${rowid})`);
+    console.log(`[MessageSync:${data.client_id}] Received 0 messages (${direction} rowid ${rowid})`);
   }
 
-  const count = await storeMessages(data.messages);
-  console.log(`[MessageSync] Stored ${count} messages`);
+  const count = await storeMessages(data.messages, data.client_id);
+  console.log(`[MessageSync:${data.client_id}] Stored ${count} messages (mode: ${syncMode})`);
 
-  // Update sync cursor to highest rowid we've seen
+  // Update sync cursor to highest rowid we've seen for this client
   if (data.messages.length > 0) {
     const maxRowid = Math.max(...data.messages.map((m) => m.rowid));
-    const currentCursor = await getSyncCursor();
+    const currentCursor = await getSyncCursor(data.client_id);
     if (maxRowid > currentCursor) {
-      await updateSyncCursor(maxRowid);
+      await updateSyncCursor(data.client_id, maxRowid);
     }
   }
 
@@ -329,28 +391,33 @@ async function handleHistoryResponse(data: HistoryResponsePayload): Promise<void
         // More new messages to fetch
         const batchMaxRowid = Math.max(...data.messages.map((m) => m.rowid));
         console.log(
-          `[MessageSync] Batch ${historyBatchesLoaded} complete, requesting more new messages since rowid ${batchMaxRowid}`,
+          `[MessageSync:${data.client_id}] Batch ${historyBatchesLoaded} complete, requesting more new messages since rowid ${batchMaxRowid}`,
         );
         setTimeout(() => {
           requestHistorySince(batchMaxRowid, BATCH_SIZE);
         }, 100);
       } else {
         // Done fetching new messages, now backfill older ones
-        console.log('[MessageSync] Finished fetching new messages, switching to backfill mode');
+        console.log(`[MessageSync:${data.client_id}] Finished fetching new messages, switching to backfill mode`);
         syncMode = 'old';
         historyBatchesLoaded = 0;
 
         // Get our current min rowid to backfill before it
-        const currentMinRowid = await getMinStoredRowid();
+        if (!currentClientId) {
+          historySyncInProgress = false;
+          console.error('[MessageSync] Cannot start backfill: no client ID');
+          return;
+        }
+        const currentMinRowid = await getMinStoredRowid(currentClientId);
         if (currentMinRowid > 0) {
-          console.log(`[MessageSync] Starting backfill before rowid ${currentMinRowid}`);
+          console.log(`[MessageSync:${currentClientId}] Starting backfill before rowid ${currentMinRowid}`);
           setTimeout(() => {
             requestHistoryBefore(currentMinRowid, BATCH_SIZE);
           }, 100);
         } else {
           // No messages to backfill from
           historySyncInProgress = false;
-          console.log('[MessageSync] History sync complete (no backfill needed)');
+          console.log(`[MessageSync:${currentClientId}] History sync complete (no backfill needed)`);
           if (onHistorySyncCompleteCallback) {
             onHistorySyncCompleteCallback();
           }
@@ -363,7 +430,7 @@ async function handleHistoryResponse(data: HistoryResponsePayload): Promise<void
       if (shouldContinue && data.messages.length > 0) {
         const batchMinRowid = Math.min(...data.messages.map((m) => m.rowid));
         console.log(
-          `[MessageSync] Backfill batch ${historyBatchesLoaded}/${MAX_HISTORY_BATCHES} complete, requesting before rowid ${batchMinRowid}`,
+          `[MessageSync:${data.client_id}] Backfill batch ${historyBatchesLoaded}/${MAX_HISTORY_BATCHES} complete, requesting before rowid ${batchMinRowid}`,
         );
         setTimeout(() => {
           requestHistoryBefore(batchMinRowid, BATCH_SIZE);
@@ -372,7 +439,7 @@ async function handleHistoryResponse(data: HistoryResponsePayload): Promise<void
         // Sync complete
         historySyncInProgress = false;
         const reason = !hasMore ? 'no more messages' : 'reached batch limit';
-        console.log(`[MessageSync] History sync complete (${reason}). Loaded ${historyBatchesLoaded} backfill batches`);
+        console.log(`[MessageSync:${data.client_id}] History sync complete (${reason}). Loaded ${historyBatchesLoaded} backfill batches`);
         if (onHistorySyncCompleteCallback) {
           onHistorySyncCompleteCallback();
         }
@@ -425,6 +492,7 @@ export function handleConnection(ws: WebSocket): void {
   if (helperConnection) {
     console.warn('[MessageSync] Closing existing helper connection');
     helperConnection.close();
+    currentClientId = null;
   }
 
   helperConnection = ws;
@@ -436,21 +504,28 @@ export function handleConnection(ws: WebSocket): void {
     onConnectedCallback();
   }
 
-  // Start history sync to catch up on any missed messages
-  startHistorySync();
+  // Note: Don't start history sync here - wait until we receive a message with client_id
+  // History sync will be triggered in handleIncomingMessage after we know the client_id
 
   ws.on('message', async (rawData) => {
     try {
       const data = JSON.parse(rawData.toString()) as IncomingPayload;
+      const hadClientId = currentClientId !== null;
       await handleIncomingMessage(data);
+
+      // Start history sync after first message with client_id
+      if (!hadClientId && currentClientId && !historySyncInProgress) {
+        await startHistorySync();
+      }
     } catch (error) {
       console.error('[MessageSync] Failed to process message:', error);
     }
   });
 
   ws.on('close', () => {
-    console.log('[MessageSync] Helper disconnected');
+    console.log(`[MessageSync] Helper disconnected (client: ${currentClientId || 'unknown'})`);
     helperConnection = null;
+    currentClientId = null;
     stopPingInterval();
 
     if (onDisconnectedCallback) {

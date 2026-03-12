@@ -81,7 +81,7 @@ function getPhoneVariants(phone: string): string[] {
  * Store messages from the sync helper
  * Returns the number of new messages stored
  */
-export async function storeMessages(messages: IncomingMessage[]): Promise<number> {
+export async function storeMessages(messages: IncomingMessage[], sourceClientId: string): Promise<number> {
   let storedCount = 0;
 
   // Track outgoing messages to update lastContacted
@@ -89,18 +89,20 @@ export async function storeMessages(messages: IncomingMessage[]): Promise<number
 
   for (const msg of messages) {
     try {
-      // Upsert message (update if exists, create if not)
+      // Upsert message (update if exists based on GUID, create if not)
       await prisma.storedMessage.upsert({
         where: { guid: msg.guid },
         update: {
           text: msg.text,
           dateRead: msg.date_read ? new Date(msg.date_read) : null,
           dateDelivered: msg.date_delivered ? new Date(msg.date_delivered) : null,
+          // Don't update sourceClientId - keep original source
         },
         create: {
           rowid: msg.rowid,
           guid: msg.guid,
           text: msg.text,
+          sourceClientId: sourceClientId,
           handleId: msg.handle_id,
           isFromMe: msg.is_from_me,
           date: new Date(msg.date),
@@ -501,27 +503,27 @@ export async function getLastContactedDatesForHandles(handles: string[]): Promis
 }
 
 /**
- * Get the current sync cursor (last synced rowid)
+ * Get the current sync cursor for a specific client (last synced rowid)
  */
-export async function getSyncCursor(): Promise<number> {
-  const state = await prisma.syncState.findUnique({
-    where: { id: 'messages_sync' },
+export async function getSyncCursor(clientId: string): Promise<number> {
+  const state = await prisma.clientSyncState.findUnique({
+    where: { clientId },
   });
   return state?.lastSyncedRowid || 0;
 }
 
 /**
- * Update the sync cursor after processing messages
+ * Update the sync cursor for a specific client after processing messages
  */
-export async function updateSyncCursor(rowid: number): Promise<void> {
-  await prisma.syncState.upsert({
-    where: { id: 'messages_sync' },
+export async function updateSyncCursor(clientId: string, rowid: number): Promise<void> {
+  await prisma.clientSyncState.upsert({
+    where: { clientId },
     update: {
       lastSyncedRowid: rowid,
       lastSyncedAt: new Date(),
     },
     create: {
-      id: 'messages_sync',
+      clientId,
       lastSyncedRowid: rowid,
       lastSyncedAt: new Date(),
     },
@@ -529,30 +531,34 @@ export async function updateSyncCursor(rowid: number): Promise<void> {
 }
 
 /**
- * Get the highest rowid we have stored
+ * Get the highest rowid we have stored for a specific client
  */
-export async function getMaxStoredRowid(): Promise<number> {
+export async function getMaxStoredRowid(clientId: string): Promise<number> {
   const result = await prisma.storedMessage.aggregate({
+    where: { sourceClientId: clientId },
     _max: { rowid: true },
   });
   return result._max.rowid || 0;
 }
 
 /**
- * Get the lowest rowid we have stored
+ * Get the lowest rowid we have stored for a specific client
  */
-export async function getMinStoredRowid(): Promise<number> {
+export async function getMinStoredRowid(clientId: string): Promise<number> {
   const result = await prisma.storedMessage.aggregate({
+    where: { sourceClientId: clientId },
     _min: { rowid: true },
   });
   return result._min.rowid || 0;
 }
 
 /**
- * Get count of stored messages
+ * Get count of stored messages for a specific client
  */
-export async function getStoredMessageCount(): Promise<number> {
-  return prisma.storedMessage.count();
+export async function getStoredMessageCount(clientId: string): Promise<number> {
+  return prisma.storedMessage.count({
+    where: { sourceClientId: clientId },
+  });
 }
 
 // Legacy format for messageBatcher compatibility

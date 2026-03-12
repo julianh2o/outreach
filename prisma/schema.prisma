@@ -92,8 +92,9 @@ model CustomFieldValue {
 
 model StoredMessage {
   id             String    @id @default(cuid())
-  rowid          Int       @unique // From chat.db, used for sync cursor
-  guid           String    @unique // Apple's message GUID
+  rowid          Int // From chat.db, per-client rowid
+  guid           String    @unique // Apple's message GUID (globally unique)
+  sourceClientId String? // Which client synced this message
   text           String?
   handleId       String // Phone/email identifier
   isFromMe       Boolean
@@ -104,11 +105,13 @@ model StoredMessage {
   hasAttachments Boolean   @default(false)
   createdAt      DateTime  @default(now())
 
-  attachments StoredAttachment[]
+  attachments  StoredAttachment[]
+  sourceClient ClientSyncState?   @relation(fields: [sourceClientId], references: [clientId])
 
+  @@unique([sourceClientId, rowid]) // Rowid is unique per client
   @@index([handleId])
   @@index([date])
-  @@index([rowid])
+  @@index([sourceClientId])
 }
 
 model StoredAttachment {
@@ -129,6 +132,18 @@ model StoredAttachment {
   @@index([errorReason])
 }
 
+model ClientSyncState {
+  clientId        String   @id // e.g., "demeter-julian-uuid"
+  clientName      String? // Optional human-readable name
+  lastSyncedRowid Int      @default(0)
+  lastSyncedAt    DateTime?
+  lastSeenAt      DateTime @updatedAt // Auto-updated when client syncs
+  createdAt       DateTime @default(now())
+
+  messages StoredMessage[]
+}
+
+// Legacy sync state table - to be removed after migration
 model SyncState {
   id              String    @id @default("messages_sync")
   lastSyncedRowid Int       @default(0)

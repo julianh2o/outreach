@@ -129,11 +129,12 @@ class SyncClient:
         try:
             payload = {
                 "type": "new_messages",
+                "client_id": self.config.client_id,
                 "messages": [serialize_message(m) for m in messages],
                 "timestamp": datetime.now().isoformat(),
             }
             await self._ws.send(json.dumps(payload))
-            logger.info(f"Sent {len(messages)} new messages to server")
+            logger.info(f"Sent {len(messages)} new messages to server (client_id={self.config.client_id})")
             return True
         except Exception as e:
             logger.error(f"Failed to send messages: {e}")
@@ -333,6 +334,7 @@ class SyncClient:
                 # Send history response
                 payload: dict[str, Any] = {
                     "type": "history_response",
+                    "client_id": self.config.client_id,
                     "messages": [serialize_message(m) for m in messages],
                     "has_more": has_more,
                 }
@@ -342,7 +344,7 @@ class SyncClient:
                     payload["before_rowid"] = before_rowid
 
                 await self._ws.send(json.dumps(payload))
-                logger.info(f"Sent {message_count} historical messages (has_more={has_more})")
+                logger.info(f"Sent {message_count} historical messages (has_more={has_more}, client_id={self.config.client_id})")
 
                 # Also send attachment data for messages with attachments
                 attachment_count = sum(len(m.attachments) for m in messages)
@@ -379,6 +381,7 @@ class SyncClient:
                 # Send empty response
                 payload: dict[str, Any] = {
                     "type": "history_response",
+                    "client_id": self.config.client_id,
                     "messages": [],
                     "has_more": False,
                 }
@@ -388,7 +391,7 @@ class SyncClient:
                     payload["before_rowid"] = before_rowid
 
                 await self._ws.send(json.dumps(payload))
-                logger.info("Sent empty history response (no messages)")
+                logger.info(f"Sent empty history response (no messages, client_id={self.config.client_id})")
 
         except Exception as e:
             logger.error(f"Failed to send history response: {e}")

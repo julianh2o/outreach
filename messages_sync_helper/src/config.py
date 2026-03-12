@@ -1,8 +1,11 @@
 """Configuration management for Outreach Sync Helper."""
 
+import getpass
 import json
 import plistlib
+import socket
 import sys
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -46,9 +49,26 @@ def get_default_websocket_url() -> str:
     return DEV_WEBSOCKET_URL
 
 
+def generate_client_id() -> str:
+    """Generate a unique client identifier.
+
+    Format: {hostname}-{username}-{uuid4}
+    Example: demeter-julian-a3f5c8d9-4e2b-4c3a-9b1e-7f8c9a0b1c2d
+
+    This provides both human-readable context and guaranteed uniqueness.
+    """
+    hostname = socket.gethostname().split(".")[0]  # Remove domain if present
+    username = getpass.getuser()
+    unique_id = str(uuid.uuid4())
+    return f"{hostname}-{username}-{unique_id}"
+
+
 @dataclass
 class Config:
     """Application configuration."""
+
+    # Client identification
+    client_id: str = ""  # Unique identifier for this client
 
     # Sync settings
     poll_interval_seconds: float = 1.0  # Fallback polling interval
@@ -77,16 +97,24 @@ class Config:
     @classmethod
     def load(cls) -> "Config":
         """Load configuration from disk, or create default."""
+        config = cls()
+
         if CONFIG_FILE.exists():
             try:
                 with open(CONFIG_FILE) as f:
                     data = json.load(f)
                 # Remove websocket_url if present (legacy config files)
                 data.pop("websocket_url", None)
-                return cls(**data)
+                config = cls(**data)
             except (json.JSONDecodeError, TypeError):
                 pass
-        return cls()
+
+        # Generate client_id if not present
+        if not config.client_id:
+            config.client_id = generate_client_id()
+            config.save()
+
+        return config
 
 
 def get_config() -> Config:
