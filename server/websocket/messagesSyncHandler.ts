@@ -8,6 +8,7 @@ import {
   getMaxStoredRowid,
   getMinStoredRowid,
   getStoredMessageCount,
+  detectSyncGap,
   type IncomingMessage,
   type IncomingAttachment,
 } from '../services/messageStorage';
@@ -40,7 +41,13 @@ interface PongPayload {
   type: 'pong';
 }
 
-type IncomingPayload = NewMessagesPayload | AttachmentPayload | HistoryResponsePayload | PongPayload;
+interface ClientStatusPayload {
+  type: 'client_status';
+  client_id: string;
+  last_message_rowid: number;
+}
+
+type IncomingPayload = NewMessagesPayload | AttachmentPayload | HistoryResponsePayload | PongPayload | ClientStatusPayload;
 
 // Outgoing message types
 interface SendMessagePayload {
@@ -177,7 +184,10 @@ async function handleIncomingMessage(data: IncomingPayload): Promise<void> {
   if ('client_id' in data && data.client_id) {
     if (!currentClientId) {
       currentClientId = data.client_id;
-      console.log(`[MessageSync] Client connected: ${currentClientId}`);
+      // Don't log here for client_status - it has its own logging
+      if (data.type !== 'client_status') {
+        console.log(`[MessageSync] Client connected: ${currentClientId}`);
+      }
     } else if (currentClientId !== data.client_id) {
       console.warn(
         `[MessageSync] Client ID mismatch: expected ${currentClientId}, got ${data.client_id}`,
@@ -190,6 +200,10 @@ async function handleIncomingMessage(data: IncomingPayload): Promise<void> {
   }
 
   switch (data.type) {
+    case 'client_status':
+      await handleClientStatus(data);
+      break;
+
     case 'new_messages':
       await handleNewMessages(data);
       break;
@@ -280,6 +294,24 @@ async function handleAttachment(data: AttachmentPayload): Promise<void> {
   }
 }
 
+async function handleClientStatus(data: ClientStatusPayload): Promise<void> {
+  const timestamp = new Date().toISOString();
+  console.log(`[MessageSync] Helper connected at ${timestamp}`);
+  console.log(`[MessageSync:${data.client_id}] Client status received: last_message_rowid=${data.last_message_rowid}`);
+
+  // Detect if there's a gap and whether we need to sync
+  const gapInfo = await detectSyncGap(data.client_id, data.last_message_rowid);
+  console.log(`[MessageSync:${data.client_id}] Gap detection: ${gapInfo.reason}`);
+
+  // If gap exists, start history sync from the appropriate point
+  if (gapInfo.hasGap) {
+    console.log(`[MessageSync:${data.client_id}] Starting history sync from rowid ${gapInfo.syncStartRowid}`);
+    await startHistorySync(gapInfo.syncStartRowid);
+  } else {
+    console.log(`[MessageSync:${data.client_id}] No sync needed - already up to date`);
+  }
+}
+
 // History sync state
 let historySyncInProgress = false;
 let historyBatchesLoaded = 0;
@@ -301,7 +333,7 @@ export function isHistorySyncInProgress(): boolean {
 // Track sync mode: 'new' for fetching newer messages, 'old' for backfilling older
 let syncMode: 'new' | 'old' = 'new';
 
-export async function startHistorySync(): Promise<void> {
+export async function startHistorySync(startFromRowid?: number): Promise<void> {
   if (historySyncInProgress) {
     console.log('[MessageSync] History sync already in progress');
     return;
@@ -328,12 +360,13 @@ export async function startHistorySync(): Promise<void> {
     console.log(`[MessageSync:${currentClientId}] No messages stored, starting fresh sync from latest`);
     requestLatestHistory(BATCH_SIZE);
   } else {
-    // We have messages - first get any new messages since our max rowid
+    // We have messages - first get any new messages since our max rowid (or provided startFromRowid)
+    const syncFromRowid = startFromRowid !== undefined ? startFromRowid : maxRowid;
     historySyncInProgress = true;
     historyBatchesLoaded = 0;
     syncMode = 'new';
-    console.log(`[MessageSync:${currentClientId}] Requesting new messages since rowid ${maxRowid}`);
-    requestHistorySince(maxRowid, BATCH_SIZE);
+    console.log(`[MessageSync:${currentClientId}] Requesting new messages since rowid ${syncFromRowid}${startFromRowid !== undefined ? ' (from gap detection)' : ''}`);
+    requestHistorySince(syncFromRowid, BATCH_SIZE);
   }
 }
 

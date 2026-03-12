@@ -561,6 +561,69 @@ export async function getStoredMessageCount(clientId: string): Promise<number> {
   });
 }
 
+/**
+ * Detect if there's a gap between what the helper has and what we've synced
+ * Returns info about whether a gap exists and where to start syncing from
+ */
+export async function detectSyncGap(
+  clientId: string,
+  helperLastRowid: number,
+): Promise<{ hasGap: boolean; syncStartRowid: number; reason: string }> {
+  try {
+    // Get server's last synced rowid from ClientSyncState
+    const serverLastRowid = await getSyncCursor(clientId);
+
+    // Get actual max rowid we have stored
+    const storedMaxRowid = await getMaxStoredRowid(clientId);
+
+    // Get message count to determine if this is a fresh sync
+    const messageCount = await getStoredMessageCount(clientId);
+
+    // Determine if gap exists and where to start syncing
+    if (messageCount === 0) {
+      // Fresh client, no messages stored yet
+      return {
+        hasGap: helperLastRowid > 0,
+        syncStartRowid: 0,
+        reason: 'Fresh sync - no messages stored yet',
+      };
+    }
+
+    if (storedMaxRowid < helperLastRowid) {
+      // We're missing recent messages - sync from where we left off
+      return {
+        hasGap: true,
+        syncStartRowid: storedMaxRowid,
+        reason: `Gap detected: helper has messages up to ${helperLastRowid}, server has up to ${storedMaxRowid}`,
+      };
+    }
+
+    if (serverLastRowid < helperLastRowid && serverLastRowid < storedMaxRowid) {
+      // Sync cursor is behind but we have messages - use stored max
+      return {
+        hasGap: true,
+        syncStartRowid: storedMaxRowid,
+        reason: `Sync cursor behind: cursor at ${serverLastRowid}, stored max ${storedMaxRowid}, helper at ${helperLastRowid}`,
+      };
+    }
+
+    // No gap - we're up to date
+    return {
+      hasGap: false,
+      syncStartRowid: 0,
+      reason: `No gap: helper at ${helperLastRowid}, server at ${storedMaxRowid}`,
+    };
+  } catch (error) {
+    console.error('[MessageStorage] Gap detection failed:', error);
+    // Return safe defaults on error - will fall back to normal sync trigger
+    return {
+      hasGap: false,
+      syncStartRowid: 0,
+      reason: `Gap detection failed: ${error}`,
+    };
+  }
+}
+
 // Legacy format for messageBatcher compatibility
 export interface LegacyMessage {
   userId: string;

@@ -101,6 +101,9 @@ class SyncClient:
             self._reconnect_delay = 1.0  # Reset on successful connect
             logger.info(f"Connected to {self.config.websocket_url}")
 
+            # Send client status immediately after connection
+            await self._send_client_status()
+
             if self.on_connected:
                 self.on_connected()
 
@@ -120,6 +123,25 @@ class SyncClient:
 
         if self.on_disconnected:
             self.on_disconnected()
+
+    async def _send_client_status(self) -> None:
+        """Send client status to server immediately upon connection."""
+        if not self._connected or not self._ws:
+            return
+
+        try:
+            payload = {
+                "type": "client_status",
+                "client_id": self.config.client_id,
+                "last_message_rowid": self.config.last_message_rowid,
+            }
+            await self._ws.send(json.dumps(payload))
+            logger.info(
+                f"Sent client status (client_id={self.config.client_id}, "
+                f"last_message_rowid={self.config.last_message_rowid})"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send client status: {e}")
 
     async def send_messages(self, messages: list[Message]) -> bool:
         """Send new messages to the server."""
