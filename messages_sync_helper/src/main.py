@@ -512,6 +512,12 @@ class MessagesSyncHelperApp(rumps.App):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
 
+        # Update the file watcher with the now-created loop so debouncing works.
+        # (_do_connect starts the watcher before this thread gets to run, so
+        # self._loop was still None when watcher.start() was called.)
+        if self.watcher and self.watcher._handler:
+            self.watcher._handler.set_loop(self._loop)
+
         # Start the sync client
         self._loop.run_until_complete(self.sync_client.run())
 
