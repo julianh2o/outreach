@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 import threading
@@ -545,6 +546,7 @@ class MessagesSyncHelperApp(rumps.App):
 
         if self._loop:
             asyncio.run_coroutine_threadsafe(self.sync_client.disconnect(), self._loop)
+            self._stop_async_loop()
 
         # Stop the database worker thread
         self.db_worker.stop()
@@ -573,8 +575,11 @@ class MessagesSyncHelperApp(rumps.App):
     @rumps.clicked("Quit")
     def on_quit(self, sender: rumps.MenuItem) -> None:
         """Quit the application."""
-        self.on_disconnect(sender)
-        rumps.quit_application()
+        try:
+            self.on_disconnect(sender)
+        finally:
+            rumps.quit_application()
+            os._exit(0)
 
 
 def run_app() -> None:
